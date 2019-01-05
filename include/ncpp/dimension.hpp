@@ -1,0 +1,101 @@
+// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+
+#ifndef NCPP_DIMENSION_HPP
+#define NCPP_DIMENSION_HPP
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1200)
+#pragma once
+#endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
+
+#include <netcdf.h>
+
+#include <ncpp/check.hpp>
+#include <ncpp/dispatch.hpp>
+
+#include <string>
+#include <vector>
+
+namespace ncpp {
+
+class dimensions_type;
+
+class dimension {
+private:
+    dimension(int ncid, int dimid)
+        : _ncid(ncid), _dimid(dimid) {}
+
+    int _ncid;
+    int _dimid;
+
+public:
+    bool operator<(const dimension& rhs) const {
+        return (_dimid < rhs._dimid);
+    }
+
+    bool operator==(const dimension& rhs) const {
+        return (_ncid == rhs._ncid && _dimid == rhs._dimid);
+    }
+
+    bool operator!=(const dimension& rhs) const {
+        return !(*this == rhs);
+    }
+
+    /// Get the dimension name.
+    std::string name() const
+    {
+        char dimname[NC_MAX_NAME + 1];
+        ncpp::check(nc_inq_dimname(_ncid, _dimid, dimname));
+        return std::string(dimname);
+    }
+
+    /// Get the dimension length.
+    std::size_t length() const
+    {
+        std::size_t dimlen;
+        ncpp::check(nc_inq_dimlen(_ncid, _dimid, &dimlen));
+        return dimlen;
+    }
+
+    /// Get the coordinate values associated with the dimension, if any.
+    template <typename T>
+    std::vector<T> coordinates() const
+    {
+        std::vector<T> result;
+
+        // Check for a variable with the same name as the dimension.
+        int cvarid;
+        if (nc_inq_varid(_ncid, this->name().c_str(), &cvarid) != NC_NOERR)
+            return result;
+
+        // Determine if the variable is a coordinate variable for the dimension.
+        int cvarndims;
+        if (nc_inq_varndims(_ncid, cvarid, &cvarndims) != NC_NOERR)
+            return result;
+        
+        if (cvarndims != 1)
+            return result;
+
+        int cvardimid;
+        if (nc_inq_vardimid(_ncid, cvarid, &cvardimid) != NC_NOERR)
+            return result;
+
+        if (cvardimid != _dimid)
+            return result;
+
+        // If found, return data array.
+        result.resize(this->length());
+        ncpp::check(ncpp::detail::get_var(_ncid, cvarid, result.data()));
+
+        return result;
+    }
+
+    friend class dimensions_type;
+};
+
+} // namespace ncpp
+
+#endif // NCPP_DIMENSION_HPP
