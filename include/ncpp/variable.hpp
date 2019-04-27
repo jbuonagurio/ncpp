@@ -22,6 +22,8 @@
 #include <ncpp/check.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/dispatch.hpp>
+#include <ncpp/selection.hpp>
+#include <ncpp/utilities.hpp>
 
 #ifdef NCPP_USE_BOOST
 // Disable global objects boost::extents and boost::indices.
@@ -33,6 +35,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 #include <numeric>
 #include <string>
 #include <tuple>
@@ -49,13 +52,22 @@ namespace ncpp {
 
 class variables_type;
 
-class variable {
+class variable
+{
 private:
     variable(int ncid, int varid) :
-        dims(_ncid, _varid), atts(_ncid, _varid), _ncid(ncid), _varid(varid) {}
+        dims(_ncid, _varid), atts(_ncid, _varid), _ncid(ncid), _varid(varid)
+    {
+        _start.resize(dims.size(), 0);
+        _shape.resize(dims.size(), 0);
+        std::transform(dims.begin(), dims.end(), _shape.begin(),
+            [](const auto& dim) { return dim.length(); });
+    }
 
     int _ncid;
     int _varid;
+    std::vector<std::size_t> _start;
+    std::vector<std::size_t> _shape;
 
 public:
     /// Dimensions associated with the variable.
@@ -101,47 +113,184 @@ public:
             return false;
     }
 
-    /// Returns true if the variable is contiguous.
+    /// Returns true if the variable is contiguous in memory.
     bool is_contiguous() const
     {
         int contiguous;
         ncpp::check(nc_inq_var_chunking(_ncid, _varid, &contiguous, nullptr));
         return (contiguous != 0);
     }
+    
+    /// Get the start indexes of the data array.
+    std::vector<std::size_t> start() const {
+        return _start;
+    }
 
     /// Get the shape of the data array.
-    std::vector<std::size_t> shape() const
-    {
-        std::vector<std::size_t> shape(dims.size());
-        std::transform(dims.begin(), dims.end(), shape.begin(),
-            [](const auto& dim) { return dim.length(); });
-        
-        return shape;
+    std::vector<std::size_t> shape() const {
+        return _shape;
     }
 
     /// Get the total number of elements in the data array.
     std::size_t size() const
     {
-        const auto& shape = this->shape();
-        return std::accumulate(shape.begin(), shape.end(), 1ull,
+        return std::accumulate(_shape.begin(), _shape.end(), 1ull,
             std::multiplies<std::size_t>());
     }
-
+    
+    /// Select a subset of the data array by coordinate range.
     template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T>>::type value() const
+    variable select(std::vector<selection<T>> selections) const
+    {
+        variable v(*this);
+        
+        for (auto& s : selections)
+        {
+            // Get the associated dimension and index.
+            const auto it = std::find(dims.begin(), dims.end(), dims[s.dimension_name]);
+            if (it == dims.end())
+                continue;
+            
+            const auto index = std::distance(dims.begin(), it);
+
+            // Find indexes from dimension coordinates.
+            auto coords = it->coordinates<T>();
+            
+            // Handle decreasing coordinates.
+            bool reversed = false;
+            if (!std::is_sorted(coords.begin(), coords.end())) {
+                std::reverse(coords.begin(), coords.end());
+                reversed = true;
+            }
+            
+            if (s.min_coordinate > s.max_coordinate) {
+                std::swap(s.min_coordinate, s.max_coordinate);
+            }
+            
+            // Set the start and shape indexes.
+            auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_coordinate);
+            auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
+            
+            if (reversed)
+                v._start.at(index) = static_cast<std::size_t>(std::distance(upper, coords.end()));
+            else
+                v._start.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
+            
+            v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper));
+        }
+        
+        return v;
+    }
+    
+    /// Read the coordinates for all dimensions into a vector of tuples.
+    template <typename... Ts>
+    auto coordinates() const
+    {
+        // Make sure we have the correct number of columns.
+        if (sizeof...(Ts) != dims.size())
+            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
+        
+        std::tuple<std::vector<Ts>...> columns;
+        
+        // Iterate over the tuple and read the dimension coordinates into each vector.
+        detail::apply_index([&] (auto i, auto&& column) {
+            using value_type = typename std::decay_t<decltype(column)>::value_type;
+            column = coordinates<value_type>(i);
+        }, columns);
+        
+        // Create the cartesian product for the hyperslab.
+        std::vector<std::tuple<Ts...>> result;
+        result = detail::tuple_cartesian_product(columns);
+        
+        return result;
+    }
+    
+    /// Read the coordinates for one dimension by index into a vector.
+    template <typename T>
+    std::vector<T> coordinates(int index) const
+    {
+        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
+        
+        // Get the coordinate values.
+        auto coords = dims.at(index).coordinates<T>();
+        auto it0 = coords.begin() + _start[index];
+        auto it1 = coords.begin() + _start[index] + _shape[index];
+        
+        return std::vector<T>(it0, it1);
+    }
+    
+    /// Read the coordinates for one dimension by name into a vector.
+    template <typename T>
+    std::vector<T> coordinates(const std::string& dimension_name) const
+    {
+        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
+        
+        // Get the associated dimension and index.
+        const auto it = std::find(dims.begin(), dims.end(), dims[dimension_name]);
+        if (it == dims.end())
+            return std::vector<T>();
+        
+        const auto index = std::distance(dims.begin(), it);
+        
+        // Get the coordinate values.
+        auto coords = it->coordinates<T>();
+        auto it0 = coords.begin() + _start[index];
+        auto it1 = coords.begin() + _start[index] + _shape[index];
+        
+        return std::vector<T>(it0, it1);
+    }
+    
+    /// Read numeric values into std::vector.
+    template <typename T>
+    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T>>::type values() const
     {
         std::vector<T> result;
         result.resize(this->size());
-        ncpp::check(ncpp::detail::get_var(_ncid, _varid, result.data()));
+        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), result.data()));
         return result;
     }
-
-    /// Read numeric values into std::vector.
+    
+    /// Read string values into std::vector.
     template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value, void>::type read(std::vector<T>& values) const
+    typename std::enable_if<std::is_same<T, std::string>::value, std::vector<T>>::type values() const
     {
-        values.resize(this->size());
-        ncpp::check(ncpp::detail::get_var(_ncid, _varid, values.data()));
+        std::vector<std::string> result;
+        const int nct = this->nctype();
+
+        if (nct == NC_CHAR) {
+            // For classic strings, the character position is the last dimension.
+            std::size_t vlen = std::accumulate(_shape.begin(), std::prev(_shape.end()), 1ull,
+                std::multiplies<std::size_t>());
+            std::size_t slen = _shape.back();
+
+            // Read the array into a buffer.
+            std::string buffer;
+            buffer.resize(vlen * slen);
+            ncpp::check(nc_get_vara_text(_ncid, _varid, _start.data(), _shape.data(), &buffer[0]));
+
+            // Iterate over the buffer and extract fixed-width strings.
+            result.reserve(vlen);
+            for (int i = 0; i < vlen; ++i) {
+                result.emplace_back(buffer.substr(i * slen, slen));
+            }
+        }
+        else if (nct == NC_STRING) {
+            std::size_t n = this->size();
+            std::vector<char *> pv(n, nullptr);
+
+            ncpp::check(nc_get_vara_string(_ncid, _varid, _start.data(), _shape.data(), pv.data()));
+            
+            result.reserve(n);
+            for (const auto& p : pv) {
+                if (p) values.emplace_back(std::string(p));
+            }
+            nc_free_string(n, pv.data());
+        }
+        else {
+            ncpp::detail::throw_error(ncpp::error::invalid_conversion);
+        }
+        
+        return result;
     }
 
     /// Read numeric values into std::valarray.
@@ -149,7 +298,7 @@ public:
     typename std::enable_if<std::is_arithmetic<T>::value, void>::type read(std::valarray<T>& values) const
     {
         values.resize(this->size());
-        ncpp::check(ncpp::detail::get_var(_ncid, _varid, &values[0]));
+        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), &values[0]));
     }
 
     /// Read numeric values into std::array.
@@ -162,7 +311,7 @@ public:
         if (N != this->size())
             ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
 
-        ncpp::check(ncpp::detail::get_var(_ncid, _varid, values.data()));
+        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), values.data()));
     }
 
 #ifdef NCPP_USE_BOOST
@@ -173,60 +322,17 @@ public:
         static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
         static_assert(N > 0, "N must be non-zero");
 
-        const auto& shape = this->shape();
-        if (N != shape.size())
+        if (N != _shape.size())
             ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
 
         // Set the extents.
         boost::array<typename boost::multi_array<T, N>::size_type, N> ext;
-        std::copy_n(shape.begin(), N, ext.begin());
+        std::copy_n(_shape.begin(), N, ext.begin());
         values.resize(ext);
 
-        ncpp::check(ncpp::detail::get_var(_ncid, _varid, values.data()));
+        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), values.data()));
     }
 #endif NCPP_USE_BOOST
-
-    /// Read string values into std::vector.
-    void read(std::vector<std::string>& values) const
-    {
-        const int nct = this->nctype();
-
-        if (nct == NC_CHAR) {
-            // For classic strings, the character position is the last dimension.
-            const auto& shape = this->shape();
-            std::size_t vlen = std::accumulate(shape.begin(), std::prev(shape.end()), 1ull,
-                std::multiplies<std::size_t>());
-            std::size_t slen = shape.back();
-
-            // Read the array into a buffer.
-            std::string buffer;
-            buffer.resize(vlen * slen);
-            ncpp::check(nc_get_var_text(_ncid, _varid, &buffer[0]));
-
-            // Iterate over the buffer and extract fixed-width strings.
-            values.clear();
-            values.reserve(vlen);
-            for (int i = 0; i < vlen; ++i) {
-                values.emplace_back(buffer.substr(i * slen, slen));
-            }
-        }
-        else if (nct == NC_STRING) {
-            std::size_t n = this->size();
-            std::vector<char *> pv(n, nullptr);
-
-            ncpp::check(nc_get_var_string(_ncid, _varid, pv.data()));
-            
-            values.clear();
-            values.reserve(n);
-            for (const auto& p : pv) {
-                if (p) values.emplace_back(std::string(p));
-            }
-            nc_free_string(n, pv.data());
-        }
-        else {
-            ncpp::detail::throw_error(ncpp::error::invalid_conversion);
-        }
-    }
 
     friend class variables_type;
 };
