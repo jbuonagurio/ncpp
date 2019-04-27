@@ -25,7 +25,8 @@ namespace ncpp {
 
 class dataset;
 
-class variables_type {
+class variables_type
+{
 private:
     using storage_type = std::set<ncpp::variable>;
     using value_type = typename storage_type::value_type;

@@ -21,7 +21,8 @@ namespace ncpp {
 
 class dataset;
 
-class file {
+class file
+{
 private:
     int _ncid;
 

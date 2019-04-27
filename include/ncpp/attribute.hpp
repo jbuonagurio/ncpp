@@ -31,7 +31,8 @@ namespace ncpp {
 
 class attributes_type;
 
-class attribute {
+class attribute
+{
 private:
     attribute(int ncid, int varid, const std::string& attname)
         : _ncid(ncid), _varid(varid), _attname(attname) {}
