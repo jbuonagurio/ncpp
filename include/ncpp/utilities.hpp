@@ -11,6 +11,7 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <chrono>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -19,8 +20,17 @@
 namespace ncpp {
 namespace detail {
 
+// Type trait for std::chrono::duration.
+
+template <typename T>
+struct is_chrono_duration : std::false_type {};
+
+template <typename R, typename P>
+struct is_chrono_duration<std::chrono::duration<R, P>> : std::true_type {};
+
 // Implement index_sequence class templates for C++11 compatibility.
-/*
+
+#if __cplusplus < 201703 || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L)
 template <size_t ...I>
 struct index_sequence {};
 
@@ -32,15 +42,15 @@ struct make_index_sequence<0, I...> : public index_sequence<I...> {};
 
 template< typename ... T >
 struct index_sequence_for : public make_index_sequence<sizeof...(T)> {};
-*/
-
+#endif
 
 // Apply function with signature (index, value) to elements of tuple.
 // Based on N3915: "apply() call a function with arguments from a tuple (V3)"
 // http://www.open-std.org/jtc1/sc22/WG21/docs/papers/2014/n3915.pdf
 
 template <typename F, typename Tuple, std::size_t... Is>
-constexpr void apply_index_impl(F&& f, Tuple&& t, std::index_sequence<Is...>) {
+constexpr void apply_index_impl(F&& f, Tuple&& t, std::index_sequence<Is...>)
+{
     (void)std::initializer_list<int> { 
         ( f(std::integral_constant<std::size_t, Is>{}, std::get<Is>(std::forward<Tuple>(t))), void(), 0 )...
     };

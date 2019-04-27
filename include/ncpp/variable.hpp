@@ -19,21 +19,28 @@
 #include <netcdf.h>
 
 #include <ncpp/attributes.hpp>
-#include <ncpp/check.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/dispatch.hpp>
 #include <ncpp/selection.hpp>
 #include <ncpp/utilities.hpp>
+#include <ncpp/check.hpp>
 
 #ifdef NCPP_USE_BOOST
-// Disable global objects boost::extents and boost::indices.
+// Disable global objects boost::extents and boost::indices
 #ifndef BOOST_MULTI_ARRAY_NO_GENERATORS
 #define BOOST_MULTI_ARRAY_NO_GENERATORS 1
 #endif // !BOOST_MULTI_ARRAY_NO_GENERATORS
 #include <boost/multi_array.hpp>
 #endif // NCPP_USE_BOOST
 
+#ifdef NCPP_USE_DATE_H
+// Implements C++20 extensions for <chrono>
+// https://github.com/HowardHinnant/date
+#include <date/date.h>
+#endif
+
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <iterator>
 #include <numeric>
@@ -182,7 +189,7 @@ public:
         return v;
     }
     
-    /// Read the coordinates for all dimensions into a vector of tuples.
+    /// Get the coordinates for all dimensions as a vector of tuples.
     template <typename... Ts>
     auto coordinates() const
     {
@@ -205,7 +212,7 @@ public:
         return result;
     }
     
-    /// Read the coordinates for one dimension by index into a vector.
+    /// Get the coordinates for one dimension by index as a vector.
     template <typename T>
     std::vector<T> coordinates(int index) const
     {
@@ -219,7 +226,7 @@ public:
         return std::vector<T>(it0, it1);
     }
     
-    /// Read the coordinates for one dimension by name into a vector.
+    /// Get the coordinates for one dimension by name as a vector.
     template <typename T>
     std::vector<T> coordinates(const std::string& dimension_name) const
     {
@@ -240,7 +247,7 @@ public:
         return std::vector<T>(it0, it1);
     }
     
-    /// Read numeric values into std::vector.
+    /// Get numeric values as a vector.
     template <typename T>
     typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T>>::type values() const
     {
@@ -250,7 +257,7 @@ public:
         return result;
     }
     
-    /// Read string values into std::vector.
+    /// Get string values as a vector.
     template <typename T>
     typename std::enable_if<std::is_same<T, std::string>::value, std::vector<T>>::type values() const
     {
@@ -292,11 +299,95 @@ public:
         
         return result;
     }
-
+    
+#ifdef NCPP_USE_DATE_H
+    /// Get time values as a vector of std::chrono::time_point<std::chrono::system_clock, T>.
+    /// Assumes a standard Gregorian calendar and CF Conventions for time units attribute.
+    template <typename T>
+    typename std::enable_if<detail::is_chrono_duration<T>::value,
+        std::vector<std::chrono::time_point<std::chrono::system_clock, T>>>::type values() const
+    {
+        // Read and validate the calendar attribute, if present.
+        // We currently assume a proleptic gregorian calendar.
+        //if (atts.contains("calendar")) {
+        //    std::string calendar;
+        //    atts["calendar"].read(calendar);
+        //    if (calendar != "gregorian" &&
+        //        calendar != "standard" &&
+        //        calendar != "proleptic_gregorian")
+        //        throw std::invalid_argument("Calendar type not implemented");
+        //}
+        
+        // Read the units attribute.
+        std::string units;
+        atts["units"].read(units);
+        std::stringstream ss(units);
+        std::string token;
+        
+        // Determine the duration scale factor.
+        // Supported units: week, day (d), hour (hr, h), minute (min), second (sec, s)
+        std::chrono::seconds scale(1);
+        ss >> token;
+        if (token == "weeks" || token == "week") {
+            scale = std::chrono::seconds(604800);
+        }
+        else if (token == "days" || token == "day" || token == "d") {
+            scale = std::chrono::seconds(86400);
+        }
+        else if (token == "hours" || token == "hour" || token == "h") {
+            scale = std::chrono::seconds(3600);
+        }
+        else if (token == "minutes" || token == "minute" || token == "m") {
+            scale = std::chrono::seconds(60);
+        }
+        else if (token != "seconds" && token != "second" && token != "s") {
+            throw std::invalid_argument("Invalid time units attribute");
+        }
+        
+        // Check for "since" delimiter.
+        ss >> token;
+        if (token != "since") {
+            throw std::invalid_argument("Invalid time units attribute");
+        }
+        
+        // Reset the buffer and parse the date-time string, checking several possible formats.
+        // Assumes CF Convention (ex. "1992-10-8 15:15:42.5 -6:00")
+        ss >> std::ws;
+        std::getline(ss, token);
+        std::chrono::time_point<std::chrono::system_clock, T> start;
+        const std::array<std::string, 4> formats = { "%F %T %Ez", "%F %T", "%F %R", "%F" };
+        for (const auto& format : formats) {
+            ss.clear();
+            ss.str(token);
+            ss >> date::parse(format, start);
+            if (!ss.fail())
+                break;
+        }
+        
+        if (ss.fail()) {
+            throw std::invalid_argument("Failed to parse time units attribute");
+        }
+        
+        // Create the result vector.
+        std::vector<double> offsets = values<double>();
+        std::vector<std::chrono::time_point<std::chrono::system_clock, T>> result;
+        result.reserve(offsets.size());
+        for (const auto& offset : offsets) {
+            std::chrono::duration<double> sec(offset * scale);
+            auto tp = start + std::chrono::duration_cast<T>(sec);
+            result.push_back(tp);
+        }
+        
+        return result;
+    }
+#endif NCPP_USE_DATE_H
+    
     /// Read numeric values into std::valarray.
     template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value, void>::type read(std::valarray<T>& values) const
+    void read(std::valarray<T>& values) const
     {
+        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
+        
         values.resize(this->size());
         ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), &values[0]));
     }
