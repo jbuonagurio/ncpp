@@ -13,8 +13,8 @@
 
 #include <netcdf.h>
 
-#include <ncpp/check.hpp>
 #include <ncpp/variable.hpp>
+#include <ncpp/check.hpp>
 
 #include <iterator>
 #include <set>
