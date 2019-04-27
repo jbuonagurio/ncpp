@@ -61,17 +61,18 @@ public:
     }
 
     /// Get the coordinate values associated with the dimension, if any.
+    /// See also: iscoordvar function in netcdf-c/ncdump/dumplib.c
     template <typename T>
-    std::vector<T> coordinates() const
+    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T>>::type coordinates() const
     {
         std::vector<T> result;
 
-        // Check for a variable with the same name as the dimension.
+        // Check for a variable with the same name as this dimension.
         int cvarid;
         if (nc_inq_varid(_ncid, this->name().c_str(), &cvarid) != NC_NOERR)
             return result;
 
-        // Determine if the variable is a coordinate variable for the dimension.
+        // Ensure the variable is one-dimensional.
         int cvarndims;
         if (nc_inq_varndims(_ncid, cvarid, &cvarndims) != NC_NOERR)
             return result;
@@ -79,6 +80,7 @@ public:
         if (cvarndims != 1)
             return result;
 
+        // Ensure the variable is indexed by this dimension.
         int cvardimid;
         if (nc_inq_vardimid(_ncid, cvarid, &cvardimid) != NC_NOERR)
             return result;

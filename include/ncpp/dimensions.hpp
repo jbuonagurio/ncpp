@@ -16,7 +16,6 @@
 #include <ncpp/check.hpp>
 #include <ncpp/dimension.hpp>
 
-#include <set>
 #include <string>
 #include <vector>
 
@@ -25,9 +24,10 @@ namespace ncpp {
 class dataset;
 class variable;
 
-class dimensions_type {
+class dimensions_type
+{
 private:
-    using storage_type = std::set<ncpp::dimension>;
+    using storage_type = std::vector<ncpp::dimension>;
     using value_type = typename storage_type::value_type;
 
     int _ncid;
@@ -47,9 +47,10 @@ private:
             dimids.resize(ndims + 1);
             ncpp::check(nc_inq_dimids(_ncid, &ndims1, dimids.data(), 0));
         } while (ndims != ndims1);
-
+        
+        _dims.reserve(ndims);
         for (int i = 0; i < ndims; ++i) {
-            _dims.emplace(ncpp::dimension(_ncid, dimids.at(i)));
+            _dims.emplace_back(ncpp::dimension(_ncid, dimids.at(i)));
         }
     }
 
@@ -63,8 +64,9 @@ private:
         dimids.resize(ndims);
         ncpp::check(nc_inq_vardimid(_ncid, _varid, dimids.data()));
 
+        _dims.reserve(ndims);
         for (int i = 0; i < ndims; ++i) {
-            _dims.emplace(ncpp::dimension(_ncid, dimids.at(i)));
+            _dims.emplace_back(ncpp::dimension(_ncid, dimids.at(i)));
         }
     }
     
@@ -98,7 +100,7 @@ public:
         int dimid;
         ncpp::check(nc_inq_dimid(_ncid, name.c_str(), &dimid));
 
-        const auto it = _dims.find(ncpp::dimension(_ncid, dimid));
+        const auto it = std::find(_dims.begin(), _dims.end(), ncpp::dimension(_ncid, dimid));
         if (it == _dims.end())
             ncpp::detail::throw_error(ncpp::error::invalid_dimension);
 
@@ -106,13 +108,13 @@ public:
     }
 
     /// Get a dimension by index.
-    const_reference operator[](std::size_t index) const
+    const_reference at(std::size_t n) const
     {
-        if (index >= _dims.size())
+        if (n >= _dims.size())
             ncpp::detail::throw_error(ncpp::error::invalid_dimension);
 
         auto it = _dims.begin();
-        std::advance(it, index);
+        std::advance(it, n);
         return *it;
     }
 
