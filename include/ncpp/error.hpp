@@ -21,100 +21,100 @@ namespace error {
 
 enum netcdf_errors
 {
-    invalid_id                       = NC_EBADID,
-    too_many_files_open              = NC_ENFILE,
-    file_exists                      = NC_EEXIST,
-    invalid_argument                 = NC_EINVAL,
-    operation_not_permitted          = NC_EPERM,
-    not_in_define_mode               = NC_ENOTINDEFINE,
-    in_define_mode                   = NC_EINDEFINE,
-    invalid_coordinates              = NC_EINVALCOORDS,
-    too_many_dimensions              = NC_EMAXDIMS,
-    name_in_use                      = NC_ENAMEINUSE,
-    attribute_not_found              = NC_ENOTATT,
-    too_many_attributes              = NC_EMAXATTS,
-    invalid_data_type                = NC_EBADTYPE,
-    invalid_dimension                = NC_EBADDIM,
-    bad_unlimited_index              = NC_EUNLIMPOS,
-    too_many_variables               = NC_EMAXVARS,
-    variable_not_found               = NC_ENOTVAR,
-    global_variable                  = NC_EGLOBAL,
-    not_a_netcdf_file                = NC_ENOTNC,
-    string_too_short                 = NC_ESTS,
-    name_too_long                    = NC_EMAXNAME,
-    unlimited_id_in_use              = NC_EUNLIMIT,
-    no_record_variables              = NC_ENORECVARS,
-    invalid_conversion               = NC_ECHAR,
-    argument_out_of_domain           = NC_EEDGE,
-    illegal_stride                   = NC_ESTRIDE,
-    invalid_name                     = NC_EBADNAME,
-    result_out_of_range              = NC_ERANGE,
-    not_enough_memory                = NC_ENOMEM,
-    invalid_variable_size            = NC_EVARSIZE,
-    invalid_dimension_size           = NC_EDIMSIZE,
-    file_truncated                   = NC_ETRUNC,
-    invalid_axis_type                = NC_EAXISTYPE,
+    invalid_id                       = NC_EBADID,          // Not a valid ID
+    too_many_files_open              = NC_ENFILE,          // Too many files open
+    file_exists                      = NC_EEXIST,          // File exists && NC_NOCLOBBER
+    invalid_argument                 = NC_EINVAL,          // Invalid argument
+    operation_not_permitted          = NC_EPERM,           // Write to read only
+    not_in_define_mode               = NC_ENOTINDEFINE,    // Operation not allowed in data mode
+    in_define_mode                   = NC_EINDEFINE,       // Operation not allowed in define mode
+    invalid_coordinates              = NC_EINVALCOORDS,    // Index exceeds dimension bound
+    too_many_dimensions              = NC_EMAXDIMS,        // NC_MAX_DIMS exceeded
+    name_in_use                      = NC_ENAMEINUSE,      // String match to name in use
+    attribute_not_found              = NC_ENOTATT,         // Attribute not found
+    too_many_attributes              = NC_EMAXATTS,        // NC_MAX_ATTRS exceeded
+    invalid_data_type                = NC_EBADTYPE,        // Not a valid data type or _FillValue type mismatch
+    invalid_dimension                = NC_EBADDIM,         // Invalid dimension ID or name
+    bad_unlimited_index              = NC_EUNLIMPOS,       // NC_UNLIMITED in the wrong index
+    too_many_variables               = NC_EMAXVARS,        // NC_MAX_VARS exceeded
+    variable_not_found               = NC_ENOTVAR,         // Variable not found
+    global_variable                  = NC_EGLOBAL,         // Action prohibited on NC_GLOBAL varid
+    not_a_netcdf_file                = NC_ENOTNC,          // Unknown file format
+    string_too_short                 = NC_ESTS,            // In Fortran string too short
+    name_too_long                    = NC_EMAXNAME,        // NC_MAX_NAME exceeded
+    unlimited_id_in_use              = NC_EUNLIMIT,        // NC_UNLIMITED size already in use
+    no_record_variables              = NC_ENORECVARS,      // nc_rec op when there are no record vars
+    invalid_conversion               = NC_ECHAR,           // Attempt to convert between text & numbers
+    argument_out_of_domain           = NC_EEDGE,           // Start+count exceeds dimension bound
+    illegal_stride                   = NC_ESTRIDE,         // Illegal stride
+    invalid_name                     = NC_EBADNAME,        // Name contains illegal characters
+    result_out_of_range              = NC_ERANGE,          // Numeric conversion not representable
+    not_enough_memory                = NC_ENOMEM,          // Memory allocation (malloc) failure
+    invalid_variable_size            = NC_EVARSIZE,        // One or more variable sizes violate format constraints
+    invalid_dimension_size           = NC_EDIMSIZE,        // Invalid dimension size
+    file_truncated                   = NC_ETRUNC,          // File likely truncated or possibly corrupted
+    invalid_axis_type                = NC_EAXISTYPE,       // Illegal axis type
     
     // DAP Errors
 
-    dap_error                        = NC_EDAP,
-    libcurl_error                    = NC_ECURL,
-    io_error                         = NC_EIO,
-    no_message_available             = NC_ENODATA,
-    dap_server_error                 = NC_EDAPSVC,
-    invalid_das                      = NC_EDAS,
-    invalid_dds                      = NC_EDDS,
-    invalid_datadds                  = NC_EDATADDS,
-    invalid_dap_url                  = NC_EDAPURL,
-    invalid_dap_constraint           = NC_EDAPCONSTRAINT,
-    translation_error                = NC_ETRANSLATION,
-    permission_denied                = NC_EACCESS,
-    authorization_error              = NC_EAUTH,
+    dap_error                        = NC_EDAP,            // DAP failure
+    libcurl_error                    = NC_ECURL,           // libcurl failure
+    io_error                         = NC_EIO,             // I/O failure
+    no_message_available             = NC_ENODATA,         // Variable has no data in DAP request
+    dap_server_error                 = NC_EDAPSVC,         // DAP server error
+    invalid_das                      = NC_EDAS,            // Malformed or inaccessible DAP DAS
+    invalid_dds                      = NC_EDDS,            // Malformed or inaccessible DAP DDS
+    invalid_datadds                  = NC_EDATADDS,        // Malformed or inaccessible DAP DATADDS
+    invalid_dap_url                  = NC_EDAPURL,         // Malformed URL
+    invalid_dap_constraint           = NC_EDAPCONSTRAINT,  // Malformed or unexpected Constraint
+    translation_error                = NC_ETRANSLATION,    // Untranslatable construct
+    permission_denied                = NC_EACCESS,         // Access failure
+    authorization_error              = NC_EAUTH,           // Authorization failure
 
     // Misc Errors
 
-    file_not_found                   = NC_ENOTFOUND,
-    file_delete_error                = NC_ECANTREMOVE,
-    internal_error                   = NC_EINTERNAL,
-    pnetcdf_error                    = NC_PNETCDF,
+    file_not_found                   = NC_ENOTFOUND,       // file not found
+    file_delete_error                = NC_ECANTREMOVE,     // cannot delete file
+    internal_error                   = NC_EINTERNAL,       // internal library error; Please contact Unidata support
+    pnetcdf_error                    = NC_PNETCDF,         // PnetCDF error
     
     // HDF5 Errors (netCDF-4)
 
-    hdf5_error                       = NC_EHDFERR,
-    file_read_error                  = NC_ECANTREAD,
-    file_write_error                 = NC_ECANTWRITE,
-    file_create_error                = NC_ECANTCREATE,
-    invalid_file_metadata            = NC_EFILEMETA,
-    invalid_dimension_metadata       = NC_EDIMMETA,
-    invalid_attribute_metadata       = NC_EATTMETA,
-    invalid_variable_metadata        = NC_EVARMETA,
-    not_a_compound_type              = NC_ENOCOMPOUND,
-    attribute_exists                 = NC_EATTEXISTS,
-    invalid_netcdf3_operation        = NC_ENOTNC4,
-    invalid_strict_netcdf3_operation = NC_ESTRICTNC3,
-    invalid_netcdf4_operation        = NC_ENOTNC3,
-    parallel_not_supported           = NC_ENOPAR,
-    parallel_initialization_error    = NC_EPARINIT,
-    invalid_group_id                 = NC_EBADGRPID,
-    invalid_type_id                  = NC_EBADTYPID,
-    type_already_defined             = NC_ETYPDEFINED,
-    invalid_field_id                 = NC_EBADFIELD,
-    invalid_class                    = NC_EBADCLASS,
-    no_mapped_access                 = NC_EMAPTYPE,
-    fill_value_exists                = NC_ELATEFILL,
-    late_definition                  = NC_ELATEDEF,
-    hdf5_dimscale_error              = NC_EDIMSCALE,
-    group_not_found                  = NC_ENOGRP,
-    invalid_storage_spec             = NC_ESTORAGE,
-    bad_chunk_size                   = NC_EBADCHUNK,
-    not_supported                    = NC_ENOTBUILT,
-    diskless_access_error            = NC_EDISKLESS,
-    extend_dimension_error           = NC_ECANTEXTEND,
-    mpi_error                        = NC_EMPI,
-    filter_operation_error           = NC_EFILTER,
-    header_bytes_not_null_padded     = NC_ENULLPAD,
-    in_memory_file_error             = NC_INMEMORY
-};
+    hdf5_error                       = NC_EHDFERR,         // HDF error
+    file_read_error                  = NC_ECANTREAD,       // Can't read file
+    file_write_error                 = NC_ECANTWRITE,      // Can't write file
+    file_create_error                = NC_ECANTCREATE,     // Can't create file
+    invalid_file_metadata            = NC_EFILEMETA,       // Can't add HDF5 file metadata
+    invalid_dimension_metadata       = NC_EDIMMETA,        // Can't define dimensional metadata
+    invalid_attribute_metadata       = NC_EATTMETA,        // Can't open HDF5 attribute
+    invalid_variable_metadata        = NC_EVARMETA,        // Problem with variable metadata.
+    not_a_compound_type              = NC_ENOCOMPOUND,     // Can't create HDF5 compound type
+    attribute_exists                 = NC_EATTEXISTS,      // Attempt to create attribute that already exists
+    invalid_netcdf3_operation        = NC_ENOTNC4,         // Attempting netcdf-4 operation on netcdf-3 file
+    invalid_strict_netcdf3_operation = NC_ESTRICTNC3,      // Attempting netcdf-4 operation on strict nc3 netcdf-4 file
+    invalid_netcdf4_operation        = NC_ENOTNC3,         // Attempting netcdf-3 operation on netcdf-4 file
+    parallel_not_supported           = NC_ENOPAR,          // Parallel operation on file opened for non-parallel access
+    parallel_initialization_error    = NC_EPARINIT,        // Error initializing for parallel access
+    invalid_group_id                 = NC_EBADGRPID,       // Bad group ID
+    invalid_type_id                  = NC_EBADTYPID,       // Bad type ID
+    type_already_defined             = NC_ETYPDEFINED,     // Type has already been defined and may not be edited
+    invalid_field_id                 = NC_EBADFIELD,       // Bad field ID
+    invalid_class                    = NC_EBADCLASS,       // Bad class
+    no_mapped_access                 = NC_EMAPTYPE,        // Mapped access for atomic types only
+    fill_value_exists                = NC_ELATEFILL,       // Attempt to define fill value when data already exists.
+    late_definition                  = NC_ELATEDEF,        // Attempt to define var properties like deflate after enddef.
+    hdf5_dimscale_error              = NC_EDIMSCALE,       // Probem with HDF5 dimscales.
+    group_not_found                  = NC_ENOGRP,          // No group found.
+    invalid_storage_spec             = NC_ESTORAGE,        // Cannot specify both contiguous and chunking.
+    bad_chunk_size                   = NC_EBADCHUNK,       // Bad chunk sizes.
+    not_supported                    = NC_ENOTBUILT,       // Attempt to use feature that was not turned on when netCDF was built.
+    diskless_access_error            = NC_EDISKLESS,       // Error in using diskless access
+    extend_dimension_error           = NC_ECANTEXTEND,     // Attempt to extend dataset during NC_INDEPENDENT I/O operation. Use nc_var_par_access to set mode NC_COLLECTIVE before extending variable.
+    mpi_error                        = NC_EMPI,            // MPI operation failed.
+    filter_operation_error           = NC_EFILTER,         // Filter error: bad id or parameters or filter library non-existent
+    header_bytes_not_null_padded     = NC_ENULLPAD,        // File fails strict Null-Byte Header check.
+    in_memory_file_error             = NC_INMEMORY         // In-memory File operation failed.
+};                                                                              
 
 extern inline const std::error_category& get_netcdf_category();
 
