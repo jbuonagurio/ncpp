@@ -13,11 +13,11 @@
 
 #include <netcdf.h>
 
+#include <ncpp/file.hpp>
+#include <ncpp/dimensions.hpp>
+#include <ncpp/variables.hpp>
 #include <ncpp/attributes.hpp>
 #include <ncpp/check.hpp>
-#include <ncpp/dimensions.hpp>
-#include <ncpp/file.hpp>
-#include <ncpp/variables.hpp>
 
 namespace ncpp {
 

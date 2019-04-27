@@ -11,13 +11,13 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/attribute.hpp>
 #include <ncpp/check.hpp>
 
 #include <set>
 #include <string>
-
-#include <netcdf.h>
 
 namespace ncpp {
 

@@ -13,8 +13,8 @@
 
 #include <netcdf.h>
 
-#include <ncpp/check.hpp>
 #include <ncpp/dimension.hpp>
+#include <ncpp/check.hpp>
 
 #include <string>
 #include <vector>

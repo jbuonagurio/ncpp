@@ -16,9 +16,7 @@
 #include <ncpp/check.hpp>
 #include <ncpp/dispatch.hpp>
 #include <ncpp/types.hpp>
-#ifdef NCPP_USE_VARIANT
 #include <ncpp/variant.hpp>
-#endif // NCPP_USE_VARIANT
 
 #include <array>
 #include <ostream>
@@ -77,27 +75,7 @@ public:
         ncpp::check(nc_inq_atttype(_ncid, _varid, _attname.data(), &atttype));
         return atttype;
     }
-
-
-
-    /// Read fixed-length string attribute (NC_CHAR).
-    std::string value() const
-    {
-        std::string result;
-        std::size_t n = this->length();
-        result.resize(n);
-        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &result[0]));
-        return result;
-    }
-
-
-
-
-
-
-
-
-
+    
     /// Read scalar attribute with numeric type.
     template <typename T>
     typename std::enable_if<std::is_arithmetic<T>::value, void>::type read(T& value) const

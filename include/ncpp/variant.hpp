@@ -11,6 +11,8 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#ifdef NCPP_USE_VARIANT
+
 #include <netcdf.h>
 
 #include <string>
@@ -56,4 +58,5 @@ static inline auto nctype_to_variant = std::unordered_map<int, variant>{
 
 } // namespace ncpp
 
+#endif // NCPP_USE_VARIANT
 #endif // NCPP_VARIANT_HPP
