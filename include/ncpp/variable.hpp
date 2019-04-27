@@ -308,15 +308,15 @@ public:
         std::vector<std::chrono::time_point<std::chrono::system_clock, T>>>::type values() const
     {
         // Read and validate the calendar attribute, if present.
-        // We currently assume a proleptic gregorian calendar.
-        //if (atts.contains("calendar")) {
-        //    std::string calendar;
-        //    atts["calendar"].read(calendar);
-        //    if (calendar != "gregorian" &&
-        //        calendar != "standard" &&
-        //        calendar != "proleptic_gregorian")
-        //        throw std::invalid_argument("Calendar type not implemented");
-        //}
+        // We currently assume a proleptic Gregorian calendar.
+        if (atts.contains("calendar")) {
+            std::string calendar;
+            atts["calendar"].read(calendar);
+            if (calendar != "gregorian" &&
+                calendar != "standard" &&
+                calendar != "proleptic_gregorian")
+                throw std::invalid_argument("Calendar type not implemented");
+        }
         
         // Read the units attribute.
         std::string units;
