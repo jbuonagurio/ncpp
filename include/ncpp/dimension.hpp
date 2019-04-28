@@ -60,39 +60,32 @@ public:
         return dimlen;
     }
 
-    /// Get the coordinate values associated with the dimension, if any.
+    /// Get the coordinate variable id associated with the dimension, if any.
     /// See also: iscoordvar function in netcdf-c/ncdump/dumplib.c
-    template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T>>::type coordinates() const
+    int coordvarid() const noexcept
     {
-        std::vector<T> result;
-
         // Check for a variable with the same name as this dimension.
         int cvarid;
         if (nc_inq_varid(_ncid, this->name().c_str(), &cvarid) != NC_NOERR)
-            return result;
+            return -1;
 
         // Ensure the variable is one-dimensional.
         int cvarndims;
         if (nc_inq_varndims(_ncid, cvarid, &cvarndims) != NC_NOERR)
-            return result;
+            return -1;
         
         if (cvarndims != 1)
-            return result;
+            return -1;
 
         // Ensure the variable is indexed by this dimension.
         int cvardimid;
         if (nc_inq_vardimid(_ncid, cvarid, &cvardimid) != NC_NOERR)
-            return result;
+            return -1;
 
         if (cvardimid != _dimid)
-            return result;
-
-        // If found, return data array.
-        result.resize(this->length());
-        ncpp::check(ncpp::detail::get_var(_ncid, cvarid, result.data()));
-
-        return result;
+            return -1;
+        
+        return cvarid;
     }
 
     friend class dimensions_type;

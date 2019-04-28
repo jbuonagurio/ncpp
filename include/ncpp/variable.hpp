@@ -145,108 +145,6 @@ public:
             std::multiplies<std::size_t>());
     }
     
-    /// Select a subset of the data array by coordinate range.
-    template <typename T>
-    variable select(std::vector<selection<T>> selections) const
-    {
-        variable v(*this);
-        
-        for (auto& s : selections)
-        {
-            // Get the associated dimension and index.
-            const auto it = std::find(dims.begin(), dims.end(), dims[s.dimension_name]);
-            if (it == dims.end())
-                continue;
-            
-            const auto index = std::distance(dims.begin(), it);
-
-            // Find indexes from dimension coordinates.
-            auto coords = it->coordinates<T>();
-            
-            // Handle decreasing coordinates.
-            bool reversed = false;
-            if (!std::is_sorted(coords.begin(), coords.end())) {
-                std::reverse(coords.begin(), coords.end());
-                reversed = true;
-            }
-            
-            if (s.min_coordinate > s.max_coordinate) {
-                std::swap(s.min_coordinate, s.max_coordinate);
-            }
-            
-            // Set the start and shape indexes.
-            auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_coordinate);
-            auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
-            
-            if (reversed)
-                v._start.at(index) = static_cast<std::size_t>(std::distance(upper, coords.end()));
-            else
-                v._start.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
-            
-            v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper));
-        }
-        
-        return v;
-    }
-    
-    /// Get the coordinates for all dimensions as a vector of tuples.
-    template <typename... Ts>
-    auto coordinates() const
-    {
-        // Make sure we have the correct number of columns.
-        if (sizeof...(Ts) != dims.size())
-            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
-        
-        std::tuple<std::vector<Ts>...> columns;
-        
-        // Iterate over the tuple and read the dimension coordinates into each vector.
-        detail::apply_index([&] (auto i, auto&& column) {
-            using value_type = typename std::decay_t<decltype(column)>::value_type;
-            column = coordinates<value_type>(i);
-        }, columns);
-        
-        // Create the cartesian product for the hyperslab.
-        std::vector<std::tuple<Ts...>> result;
-        result = detail::tuple_cartesian_product(columns);
-        
-        return result;
-    }
-    
-    /// Get the coordinates for one dimension by index as a vector.
-    template <typename T>
-    std::vector<T> coordinates(int index) const
-    {
-        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
-        
-        // Get the coordinate values.
-        auto coords = dims.at(index).coordinates<T>();
-        auto it0 = coords.begin() + _start[index];
-        auto it1 = coords.begin() + _start[index] + _shape[index];
-        
-        return std::vector<T>(it0, it1);
-    }
-    
-    /// Get the coordinates for one dimension by name as a vector.
-    template <typename T>
-    std::vector<T> coordinates(const std::string& dimension_name) const
-    {
-        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
-        
-        // Get the associated dimension and index.
-        const auto it = std::find(dims.begin(), dims.end(), dims[dimension_name]);
-        if (it == dims.end())
-            return std::vector<T>();
-        
-        const auto index = std::distance(dims.begin(), it);
-        
-        // Get the coordinate values.
-        auto coords = it->coordinates<T>();
-        auto it0 = coords.begin() + _start[index];
-        auto it1 = coords.begin() + _start[index] + _shape[index];
-        
-        return std::vector<T>(it0, it1);
-    }
-    
     /// Get numeric values as a vector.
     template <typename T>
     typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T>>::type values() const
@@ -381,7 +279,7 @@ public:
         return result;
     }
 #endif NCPP_USE_DATE_H
-    
+
     /// Read numeric values into std::valarray.
     template <typename T>
     void read(std::valarray<T>& values) const
@@ -424,6 +322,103 @@ public:
         ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), values.data()));
     }
 #endif NCPP_USE_BOOST
+    
+    /// Select a subset of the data array by coordinate range.
+    template <typename T>
+    variable select(std::vector<selection<T>> selections) const
+    {
+        variable v(*this);
+        
+        for (auto& s : selections)
+        {
+            // Get the associated dimension and index.
+            const auto it = std::find(dims.begin(), dims.end(), dims[s.dimension_name]);
+            if (it == dims.end())
+                continue;
+            
+            const auto index = std::distance(dims.begin(), it);
+
+            // Find indexes from dimension coordinates.
+            int cvarid = it->coordvarid();
+            variable cv(_ncid, cvarid);
+            auto coords = cv.values<T>();
+            
+            // Handle decreasing coordinates.
+            bool reversed = false;
+            if (!std::is_sorted(coords.begin(), coords.end())) {
+                std::reverse(coords.begin(), coords.end());
+                reversed = true;
+            }
+            
+            if (s.min_coordinate > s.max_coordinate) {
+                std::swap(s.min_coordinate, s.max_coordinate);
+            }
+            
+            // Set the start and shape indexes.
+            auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_coordinate);
+            auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
+            
+            if (reversed)
+                v._start.at(index) = static_cast<std::size_t>(std::distance(upper, coords.end()));
+            else
+                v._start.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
+            
+            v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper));
+        }
+        
+        return v;
+    }
+    
+    /// Get the coordinates for all dimensions as a vector of tuples.
+    template <typename... Ts>
+    auto coordinates() const
+    {
+        // Make sure we have the correct number of columns.
+        if (sizeof...(Ts) != dims.size())
+            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
+        
+        std::tuple<std::vector<Ts>...> columns;
+        
+        // Iterate over the tuple and read the dimension coordinates into each vector.
+        detail::apply_index([&] (auto i, auto&& column) {
+            using value_type = typename std::decay_t<decltype(column)>::value_type;
+            column = coordinates<value_type>(i);
+        }, columns);
+        
+        // Create the cartesian product for the hyperslab.
+        std::vector<std::tuple<Ts...>> result;
+        result = detail::tuple_cartesian_product(columns);
+        
+        return result;
+    }
+    
+    /// Get the coordinates for one dimension by index as a vector.
+    template <typename T>
+    std::vector<T> coordinates(int index) const
+    {   
+        // Get the coordinate values.
+        int cvarid = dims.at(index).coordvarid();
+        variable cv(_ncid, cvarid);
+        auto coords = cv.values<T>();
+        
+        auto it0 = coords.begin() + _start[index];
+        auto it1 = coords.begin() + _start[index] + _shape[index];
+        
+        return std::vector<T>(it0, it1);
+    }
+    
+    /// Get the coordinates for one dimension by name as a vector.
+    template <typename T>
+    std::vector<T> coordinates(const std::string& dimension_name) const
+    {   
+        // Get the associated dimension and index.
+        const auto it = std::find(dims.begin(), dims.end(), dims[dimension_name]);
+        if (it == dims.end())
+            return std::vector<T>();
+        
+        const auto index = std::distance(dims.begin(), it);
+        return coordinates<T>(index);
+    }
 
     friend class variables_type;
 };
