@@ -176,7 +176,9 @@ public:
             // Iterate over the buffer and extract fixed-width strings.
             result.reserve(vlen);
             for (int i = 0; i < vlen; ++i) {
-                result.emplace_back(buffer.substr(i * slen, slen));
+                std::string s = buffer.substr(i * slen, slen);
+                s.erase(s.find_last_not_of(' ') + 1);
+                result.push_back(s);
             }
         }
         else if (nct == NC_STRING) {
