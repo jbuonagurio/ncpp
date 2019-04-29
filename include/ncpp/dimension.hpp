@@ -69,20 +69,27 @@ public:
         if (nc_inq_varid(_ncid, this->name().c_str(), &cvarid) != NC_NOERR)
             return -1;
 
+        // Get the variable type.
+        int cvartype;
+        if (nc_inq_vartype(_ncid, cvarid, &cvartype) != NC_NOERR)
+            return -1;
+
         // Ensure the variable is one-dimensional.
+        // Allow two dimensions for classic strings.
         int cvarndims;
         if (nc_inq_varndims(_ncid, cvarid, &cvarndims) != NC_NOERR)
             return -1;
         
-        if (cvarndims != 1)
+        if ((cvartype != NC_CHAR && cvarndims != 1) ||
+            (cvartype == NC_CHAR && cvarndims > 2))
             return -1;
 
         // Ensure the variable is indexed by this dimension.
-        int cvardimid;
-        if (nc_inq_vardimid(_ncid, cvarid, &cvardimid) != NC_NOERR)
+        int cvardimid[2];
+        if (nc_inq_vardimid(_ncid, cvarid, &cvardimid[0]) != NC_NOERR)
             return -1;
 
-        if (cvardimid != _dimid)
+        if (cvardimid[0] != _dimid)
             return -1;
         
         return cvarid;

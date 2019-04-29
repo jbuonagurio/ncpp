@@ -114,10 +114,13 @@ public:
     /// Returns true if the variable is a coordinate variable.
     bool is_coordinate() const
     {
-        if (dims.size() == 1 && dims.front().name() == this->name())
-            return true;
-        else
-            return false;
+        if (dims.front().name() == this->name()) {
+            if (dims.size() == 1)
+                return true;
+            else if (this->nctype() == NC_CHAR && dims.size() == 2)
+                return true;
+        }
+        return false;
     }
 
     /// Returns true if the variable is contiguous in memory.
