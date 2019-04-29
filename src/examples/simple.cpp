@@ -10,6 +10,11 @@
 #include <variant>
 #include <vector>
 
+// Implements C++20 extensions for <chrono>
+// https://github.com/HowardHinnant/date
+#include <date/date.h>
+
+#define NCPP_USE_DATE_H
 #define NCPP_USE_VARIANT // Requires std::variant (C++17)
 #include <ncpp/ncpp.hpp>
 
@@ -47,26 +52,29 @@ static std::ostream& operator<<(std::ostream& os, const ncpp::attribute& rhs)
 
 int main(int argc, char *argv[])
 {
-    // Using sea surface temperature example from Unidata.
+    // Test file: surface data for July 2002 from the ECMWF 40 Years Re-Analysis
+    // https://www.unidata.ucar.edu/software/netcdf/examples/files.html
+    
     std::string filename;
     if (argc > 1)
         filename = argv[1];
     else
-        filename = "./data/tos_O1_2001-2002.nc";
+        filename = "./data/ECMWF_ERA-40_subset.nc";
     
-    std::cout << ncpp::library_version() << "\n";
+    // netCDF library version
+    std::cout << ncpp::library_version() << "\n\n";
     
     try {
         ncpp::file f(filename, ncpp::file::read);
         ncpp::dataset ds(f);
         
-        // Range-based access to metadata.
-        std::cout << "\nDIMENSIONS:\n";
+        // Range-based access to metadata
+        std::cout << "dimensions:\n";
         for (const auto& dim : ds.dims) {
             std::cout << "\t" << dim.name() << "\n";
         }
         
-        std::cout << "\nVARIABLES:\n";
+        std::cout << "variables:\n";
         for (const auto& var : ds.vars) {
             std::cout << "\t" << var.name() << "(";
             std::string separator;
@@ -75,53 +83,51 @@ int main(int argc, char *argv[])
                 separator = ",";
             }
             std::cout << ")\n";
-            
             for (const auto& att : var.atts) {
                 std::cout << "\t\t" << att << "\n";
             }
         }
         
-        std::cout << "\nATTRIBUTES:\n";
+        std::cout << "attributes:\n";
         for (const auto& att : ds.atts) {
             std::cout << "\t" << att << "\n";
         }
         
-        // Coordinate variables for dimensions.
-        std::cout << "\nCOORDINATES TEST:\n";
-        auto time = ds.dims["time"].coordinates<int>();
-        std::cout << "time: \t" << time << "\n\n";
-        auto lat = ds.dims["lat"].coordinates<double>();
-        std::cout << "lat: \t" << lat << "\n\n";
-        auto lon = ds.dims["lon"].coordinates<double>();
-        std::cout << "lon: \t" << lon << "\n\n";
+        // Subset selection
+        std::cout << "selection:\n";
+        auto tcw = ds.vars["tcw"];
         
-        // Selection API.
-        std::cout << "\nSELECTION TEST:\n";
-        
-        auto sst = ds.vars["tos"];
-        auto slice = sst
+        date::sys_days start = date::year{2002}/7/1;
+        date::sys_days end = date::year{2002}/7/3;
+        auto slice = tcw
             .select<double>({
-                {"time", 375, 375},    // time(12)
-                {"lat", -15.5, -15.5}, // lat(64)
-                {"lon", 125, 125}      // lon(62)
+                {"latitude", 80, 80},
+                {"longitude", 10, 10}
+            })
+            .select<date::sys_days>({
+                {"time", start, end}
             });
         
-        std::cout << "shape:";
+        // Selection shape
+        std::cout << "\tshape: (";
+        std::string separator;
         for (const auto& i : slice.shape()) {
-            std::cout << " " << i;
+            std::cout << separator << i;
+            separator = ",";
         }
-        std::cout << "\n";
+        std::cout << ")\n";
         
-        auto coordinates = slice.coordinates<int, double, double>();
+        // Print coordinates and values
+        auto coordinates = slice.coordinates<date::sys_seconds, double, double>();
         auto values = slice.values<double>();
 
         for (int i = 0; i < coordinates.size(); ++i) {
             auto c = coordinates.at(i);
             auto v = values.at(i);
-            std::cout << "[" << std::get<0>(c) 
+            std::cout << "\ttcw(" << date::format("%F %R",std::get<0>(c))
                       << "," << std::get<1>(c)
                       << "," << std::get<2>(c)
-                      << "]\t" << std::fixed << std::setprecision(4) << v << "\n";
+                      << ") = " << v << "\n";
         }
     }
     catch (std::system_error& e) {
