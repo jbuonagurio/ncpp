@@ -199,11 +199,10 @@ public:
     }
     
 #ifdef NCPP_USE_DATE_H
-    /// Get time values as a vector of std::chrono::time_point<std::chrono::system_clock, T>.
-    /// Assumes a standard Gregorian calendar and CF Conventions for time units attribute.
+    /// Get time values as a vector of std::chrono::time_point.
+    /// Parser assumes a standard Gregorian calendar and CF Conventions for time units attribute.
     template <typename T>
-    typename std::enable_if<detail::is_chrono_duration<T>::value,
-        std::vector<std::chrono::time_point<std::chrono::system_clock, T>>>::type values() const
+    typename std::enable_if<detail::is_chrono_time_point<T>::value, std::vector<T>>::type values() const
     {
         // Read and validate the calendar attribute, if present.
         // We currently assume a proleptic Gregorian calendar.
@@ -213,7 +212,7 @@ public:
             if (calendar != "gregorian" &&
                 calendar != "standard" &&
                 calendar != "proleptic_gregorian")
-                throw std::invalid_argument("Calendar type not implemented");
+                throw std::runtime_error("Calendar type not implemented");
         }
         
         // Read the units attribute.
@@ -239,20 +238,20 @@ public:
             scale = std::chrono::seconds(60);
         }
         else if (token != "seconds" && token != "second" && token != "s") {
-            throw std::invalid_argument("Invalid time units attribute");
+            throw std::runtime_error("Invalid time units attribute");
         }
         
         // Check for "since" delimiter.
         ss >> token;
         if (token != "since") {
-            throw std::invalid_argument("Invalid time units attribute");
+            throw std::runtime_error("Invalid time units attribute");
         }
         
         // Reset the buffer and parse the date-time string, checking several possible formats.
         // Assumes CF Convention (ex. "1992-10-8 15:15:42.5 -6:00")
         ss >> std::ws;
         std::getline(ss, token);
-        std::chrono::time_point<std::chrono::system_clock, T> start;
+        T start;
         const std::array<std::string, 4> formats = { "%F %T %Ez", "%F %T", "%F %R", "%F" };
         for (const auto& format : formats) {
             ss.clear();
@@ -263,16 +262,16 @@ public:
         }
         
         if (ss.fail()) {
-            throw std::invalid_argument("Failed to parse time units attribute");
+            throw std::runtime_error("Failed to parse time units attribute");
         }
         
         // Create the result vector.
         std::vector<double> offsets = values<double>();
-        std::vector<std::chrono::time_point<std::chrono::system_clock, T>> result;
+        std::vector<T> result;
         result.reserve(offsets.size());
         for (const auto& offset : offsets) {
             std::chrono::duration<double> sec(offset * scale);
-            auto tp = start + std::chrono::duration_cast<T>(sec);
+            T tp = start + std::chrono::duration_cast<T::duration>(sec);
             result.push_back(tp);
         }
         

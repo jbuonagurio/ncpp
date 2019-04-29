@@ -20,13 +20,19 @@
 namespace ncpp {
 namespace detail {
 
-// Type trait for std::chrono::duration.
+// Type traits for std::chrono.
 
 template <typename T>
 struct is_chrono_duration : std::false_type {};
 
 template <typename R, typename P>
 struct is_chrono_duration<std::chrono::duration<R, P>> : std::true_type {};
+
+template <typename T>
+struct is_chrono_time_point : std::false_type {};
+
+template <typename C, typename D>
+struct is_chrono_time_point<std::chrono::time_point<C, D>> : std::true_type {};
 
 // Implement index_sequence class templates for C++11 compatibility.
 
