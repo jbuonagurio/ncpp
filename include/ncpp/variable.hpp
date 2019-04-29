@@ -187,7 +187,7 @@ public:
             
             result.reserve(n);
             for (const auto& p : pv) {
-                if (p) values.emplace_back(std::string(p));
+                if (p) result.emplace_back(std::string(p));
             }
             nc_free_string(n, pv.data());
         }
