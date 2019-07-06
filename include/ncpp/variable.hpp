@@ -67,6 +67,7 @@ private:
     {
         _start.resize(dims.size(), 0);
         _shape.resize(dims.size(), 0);
+        _stride.resize(dims.size(), 1);
         std::transform(dims.begin(), dims.end(), _shape.begin(),
             [](const auto& dim) { return dim.length(); });
     }
@@ -75,6 +76,7 @@ private:
     int _varid;
     std::vector<std::size_t> _start;
     std::vector<std::size_t> _shape;
+    std::vector<std::ptrdiff_t> _stride;
 
 public:
     /// Dimensions associated with the variable.
@@ -140,6 +142,11 @@ public:
     std::vector<std::size_t> shape() const {
         return _shape;
     }
+    
+    /// Get the strides of the data array.
+    std::vector<std::ptrdiff_t> stride() const {
+        return _stride;
+    }
 
     /// Get the total number of elements in the data array.
     std::size_t size() const
@@ -154,7 +161,7 @@ public:
     {
         std::vector<T> result;
         result.resize(this->size());
-        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), result.data()));
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data()));
         return result;
     }
     
@@ -174,7 +181,7 @@ public:
             // Read the array into a buffer.
             std::string buffer;
             buffer.resize(vlen * slen);
-            ncpp::check(nc_get_vara_text(_ncid, _varid, _start.data(), _shape.data(), &buffer[0]));
+            ncpp::check(nc_get_vars_text(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), &buffer[0]));
 
             // Iterate over the buffer and extract fixed-width strings.
             result.reserve(vlen);
@@ -188,7 +195,7 @@ public:
             std::size_t n = this->size();
             std::vector<char *> pv(n, nullptr);
 
-            ncpp::check(nc_get_vara_string(_ncid, _varid, _start.data(), _shape.data(), pv.data()));
+            ncpp::check(nc_get_vars_string(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), pv.data()));
             
             result.reserve(n);
             for (const auto& p : pv) {
@@ -291,7 +298,7 @@ public:
         static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
         
         values.resize(this->size());
-        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), &values[0]));
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), &values[0]));
     }
 
     /// Read numeric values into std::array.
@@ -304,7 +311,7 @@ public:
         if (N != this->size())
             ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
 
-        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), values.data()));
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), values.data()));
     }
 
 #ifdef NCPP_USE_BOOST
@@ -323,7 +330,7 @@ public:
         std::copy_n(_shape.begin(), N, ext.begin());
         values.resize(ext);
 
-        ncpp::check(ncpp::detail::get_vara(_ncid, _varid, _start.data(), _shape.data(), values.data()));
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), values.data()));
     }
 #endif NCPP_USE_BOOST
     
@@ -367,7 +374,8 @@ public:
             else
                 v._start.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
             
-            v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper));
+            v._stride.at(index) = s.stride;
+            v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper)) / std::abs(s.stride);
         }
         
         return v;
@@ -403,12 +411,11 @@ public:
         // Get the coordinate values.
         int cvarid = dims.at(index).coordvarid();
         variable cv(_ncid, cvarid);
+        cv._start.at(0) = _start.at(index);
+        cv._shape.at(0) = _shape.at(index);
+        cv._stride.at(0) = _stride.at(index);
         auto coords = cv.values<T>();
-        
-        auto it0 = coords.begin() + _start[index];
-        auto it1 = coords.begin() + _start[index] + _shape[index];
-        
-        return std::vector<T>(it0, it1);
+        return coords;
     }
     
     /// Get the coordinates for one dimension by name as a vector.

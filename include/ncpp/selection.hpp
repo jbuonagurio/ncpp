@@ -17,10 +17,11 @@ namespace ncpp {
 
 template <typename T>
 struct selection
-{   
+{
     std::string dimension_name;
     T min_coordinate;
     T max_coordinate;
+    std::ptrdiff_t stride = 1;
 };
 
 } // namespace ncpp
