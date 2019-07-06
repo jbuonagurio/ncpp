@@ -98,14 +98,14 @@ int main(int argc, char *argv[])
         auto tcw = ds.vars["tcw"];
         
         date::sys_days start = date::year{2002}/7/1;
-        date::sys_days end = date::year{2002}/7/3;
+        date::sys_days end = date::year{2002}/7/6;
         auto slice = tcw
             .select<double>({
                 {"latitude", 80, 80},
                 {"longitude", 10, 10}
             })
             .select<date::sys_days>({
-                {"time", start, end}
+                {"time", start, end, 2 /* stride */}
             });
         
         // Selection shape
