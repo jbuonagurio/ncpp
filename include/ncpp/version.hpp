@@ -18,7 +18,7 @@
 namespace ncpp {
 
 /// Get the netCDF-C library version string.
-const std::string library_version()
+inline std::string library_version()
 {
     return "netCDF " + std::string(nc_inq_libvers());
 }
