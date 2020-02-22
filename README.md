@@ -41,14 +41,11 @@ int main(int argc, char *argv[])
     // Subset selection using coordinate variables: "latitude", "longitude", "time"
     date::sys_days start = date::year{2002}/7/1;
     date::sys_days end = date::year{2002}/7/6;
-    auto slice = tcw
-        .select<double>({
-            {"latitude", 80, 80},
-            {"longitude", 10, 10}
-        })
-        .select<date::sys_days>({
-            {"time", start, end, 2 /* stride */}
-        });
+    auto slice = tcw.select(
+        ncpp::selection<date::sys_days>{"time", start, end, 2 /* stride */},
+        ncpp::selection<double>{"latitude", 80, 80},
+        ncpp::selection<double>{"longitude", 10, 10}
+    );
     
     // Print the selection shape
     std::cout << "\tshape: (";

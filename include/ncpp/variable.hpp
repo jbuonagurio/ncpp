@@ -335,49 +335,62 @@ public:
     }
 #endif // NCPP_USE_BOOST
     
-    /// Select a subset of the data array by coordinate range.
-    template <typename T>
-    variable select(std::vector<selection<T>> selections) const
+    /// \group select
+    /// Select a subset of the data array by coordinate range for one or more dimensions.
+    template <typename... Ts>
+    variable select(selection<Ts>&&... selections) const
     {
         variable v(*this);
         
-        for (auto& s : selections)
-        {
-            // Get the associated dimension and index.
-            const auto it = std::find(dims.begin(), dims.end(), dims[s.dimension_name]);
-            if (it == dims.end())
-                continue;
-            
-            const auto index = std::distance(dims.begin(), it);
+        // Return a copy of the variable with updated start, shape and stride.
+        auto tuple = std::make_tuple(std::forward<selection<Ts>>(selections)...);
+        detail::apply_index([&] (auto i, auto&& s) {
+            v = v.select(s);
+        }, tuple);
+        
+        return v;
+    }
+    
+    /// \group select
+    template <typename T>
+    variable select(selection<T>& s) const
+    {
+        variable v(*this);
+        
+        // Get the associated dimension and index.
+        const auto it = std::find(dims.begin(), dims.end(), dims[s.dimension_name]);
+        if (it == dims.end())
+            return v;
+        
+        const auto index = std::distance(dims.begin(), it);
 
-            // Find indexes from dimension coordinates.
-            int cvarid = it->coordvarid();
-            variable cv(_ncid, cvarid);
-            auto coords = cv.values<T>();
-            
-            // Handle decreasing coordinates.
-            bool reversed = false;
-            if (!std::is_sorted(coords.begin(), coords.end())) {
-                std::reverse(coords.begin(), coords.end());
-                reversed = true;
-            }
-            
-            if (s.min_coordinate > s.max_coordinate) {
-                std::swap(s.min_coordinate, s.max_coordinate);
-            }
-            
-            // Set the start and shape indexes.
-            auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_coordinate);
-            auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
-            
-            if (reversed)
-                v._start.at(index) = static_cast<std::size_t>(std::distance(upper, coords.end()));
-            else
-                v._start.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
-            
-            v._stride.at(index) = s.stride;
-            v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper)) / std::abs(s.stride);
+        // Find indexes from dimension coordinates.
+        int cvarid = it->coordvarid();
+        variable cv(_ncid, cvarid);
+        auto coords = cv.values<T>();
+        
+        // Handle decreasing coordinates.
+        bool reversed = false;
+        if (!std::is_sorted(coords.begin(), coords.end())) {
+            std::reverse(coords.begin(), coords.end());
+            reversed = true;
         }
+        
+        if (s.min_coordinate > s.max_coordinate) {
+            std::swap(s.min_coordinate, s.max_coordinate);
+        }
+        
+        // Set the start and shape indexes.
+        auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_coordinate);
+        auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
+        
+        if (reversed)
+            v._start.at(index) = static_cast<std::size_t>(std::distance(upper, coords.end()));
+        else
+            v._start.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
+        
+        v._stride.at(index) = s.stride;
+        v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper)) / std::abs(s.stride);
         
         return v;
     }
