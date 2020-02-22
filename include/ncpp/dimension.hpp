@@ -16,6 +16,7 @@
 #include <ncpp/check.hpp>
 #include <ncpp/dispatch.hpp>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,20 @@ public:
         std::size_t dimlen;
         ncpp::check(nc_inq_dimlen(_ncid, _dimid, &dimlen));
         return dimlen;
+    }
+    
+    /// Returns true if the dimension is unlimited.
+    bool is_unlimited() const
+    {
+        std::vector<int> unlim;
+        int nunlim;
+        ncpp::check(nc_inq_unlimdims(_ncid, &nunlim, nullptr));
+        if (nunlim <= 0)
+            return false;
+        unlim.resize(nunlim);
+        ncpp::check(nc_inq_unlimdims(_ncid, &nunlim, unlim.data()));
+        auto it = std::find(unlim.begin(), unlim.end(), _dimid);
+        return (it != unlim.end());
     }
 
     /// Get the coordinate variable id associated with the dimension, if any.
