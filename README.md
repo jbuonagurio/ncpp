@@ -13,10 +13,11 @@ ncpp is in an early stage of development, and currently supports read-only acces
 
 ### Features
 
-* STL-compatible iterators for variables and attributes
+* STL-compatible iterators for dimensions, variables and attributes
 * Flexible indexing methods for data selection using coordinate variables
 * Adaptors for STL containers, Boost.MultiArray and Boost.uBLAS
 * CF-compliant date and time conversion using [HowardHinnant/date](https://github.com/HowardHinnant/date)
+* Streaming operators for CDL metadata
 * Error handling based on `std::error_code`
 
 ### Example
@@ -34,6 +35,9 @@ int main(int argc, char *argv[])
 {
     ncpp::file f("ECMWF_ERA-40_subset.nc", ncpp::file::read);
     ncpp::dataset ds(f);
+    
+    // Print metadata in CDL format
+    std::cout << ds << "\n";
     
     // Select the "tcw" variable
     auto tcw = ds.vars["tcw"];
