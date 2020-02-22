@@ -5,7 +5,7 @@
   https://www.boost.org/LICENSE_1_0.txt)
 -->
 
-## ncpp - netCDF header-only C++ Library**
+## ncpp - netCDF header-only C++ Library
 
 ncpp provides a convenient, high-level C++17 interface to the netCDF-C library, inspired by [BlueBrain/HighFive](https://github.com/BlueBrain/HighFive) and [pydata/xarray](https://github.com/pydata/xarray). Licensed under the [Boost Software License](http://www.boost.org/LICENSE_1_0.txt).
 
