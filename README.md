@@ -5,13 +5,13 @@
   https://www.boost.org/LICENSE_1_0.txt)
 -->
 
-**ncpp - netCDF header-only C++ Library**
+## ncpp - netCDF header-only C++ Library**
 
 ncpp provides a convenient, high-level C++17 interface to the netCDF-C library, inspired by [BlueBrain/HighFive](https://github.com/BlueBrain/HighFive) and [pydata/xarray](https://github.com/pydata/xarray). Licensed under the [Boost Software License](http://www.boost.org/LICENSE_1_0.txt).
 
 ncpp is in an early stage of development, and currently supports read-only access to netCDF datasets.
 
-## Features
+### Features
 
 * STL-compatible iterators for variables and attributes
 * Flexible indexing methods for data selection using coordinate variables
@@ -19,7 +19,7 @@ ncpp is in an early stage of development, and currently supports read-only acces
 * CF-compliant date and time conversion using [HowardHinnant/date](https://github.com/HowardHinnant/date)
 * Error handling based on `std::error_code`
 
-## Example
+### Example
 
 The following example illustrates subset selection using the `ECMWF_ERA-40_subset.nc` file from [Unidata Example netCDF files](https://www.unidata.ucar.edu/software/netcdf/examples/files.html).
 
