@@ -21,6 +21,7 @@
 
 namespace ncpp {
 
+/// netCDF dataset type.
 class dataset {
 private:
     int _ncid;

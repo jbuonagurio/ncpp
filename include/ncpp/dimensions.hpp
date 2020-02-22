@@ -24,6 +24,7 @@ namespace ncpp {
 class dataset;
 class variable;
 
+/// netCDF dimension sequence container.
 class dimensions_type
 {
 private:

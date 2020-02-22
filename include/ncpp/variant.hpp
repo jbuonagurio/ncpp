@@ -22,9 +22,7 @@
 
 namespace ncpp {
 
-/**
- * Runtime netCDF type to type mapping. Requires std::variant (C++17).
- */
+// Runtime netCDF type to type mapping. Requires std::variant (C++17).
 
 using variant = std::variant<
     std::string,

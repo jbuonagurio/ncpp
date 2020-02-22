@@ -15,6 +15,7 @@
 
 namespace ncpp {
 
+/// netCDF coordinate variable selection type.
 template <typename T>
 struct selection
 {

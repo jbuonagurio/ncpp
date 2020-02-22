@@ -29,6 +29,7 @@ namespace ncpp {
 
 class attributes_type;
 
+/// netCDF attribute type.
 class attribute
 {
 private:
@@ -108,7 +109,7 @@ public:
         ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), values.data()));
     }
 
-    /// Read fixed-length string attribute (NC_CHAR).
+    /// Read fixed-length string attribute (`NC_CHAR`).
     void read(std::string& value) const
     {
         std::size_t n = this->length();
@@ -116,7 +117,7 @@ public:
         ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &value[0]));
     }
 
-    /// Read variable-length string attribute (NC_STRING).
+    /// Read variable-length string attribute (`NC_STRING`).
     void read(std::vector<std::string>& values) const
     {
         std::size_t n = this->length();

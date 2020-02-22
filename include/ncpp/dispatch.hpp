@@ -13,6 +13,8 @@
 
 #include <netcdf.h>
 
+#include <cstddef>
+
 // This file provides overloads for typed netCDF-C libdispatch functions.
 
 namespace ncpp {

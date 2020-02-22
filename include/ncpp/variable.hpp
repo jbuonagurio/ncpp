@@ -59,6 +59,7 @@ namespace ncpp {
 
 class variables_type;
 
+/// netCDF variable type.
 class variable
 {
 private:
@@ -289,7 +290,7 @@ public:
         
         return result;
     }
-#endif NCPP_USE_DATE_H
+#endif // NCPP_USE_DATE_H
 
     /// Read numeric values into std::valarray.
     template <typename T>
@@ -332,7 +333,7 @@ public:
 
         ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), values.data()));
     }
-#endif NCPP_USE_BOOST
+#endif // NCPP_USE_BOOST
     
     /// Select a subset of the data array by coordinate range.
     template <typename T>

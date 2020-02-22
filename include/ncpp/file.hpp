@@ -21,6 +21,7 @@ namespace ncpp {
 
 class dataset;
 
+/// netCDF file type.
 class file
 {
 private:

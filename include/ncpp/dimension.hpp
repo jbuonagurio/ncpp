@@ -23,6 +23,7 @@ namespace ncpp {
 
 class dimensions_type;
 
+/// netCDF dimension type.
 class dimension {
 private:
     dimension(int ncid, int dimid)

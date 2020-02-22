@@ -25,6 +25,7 @@ namespace ncpp {
 
 class dataset;
 
+/// netCDF variable set.
 class variables_type
 {
 private:
