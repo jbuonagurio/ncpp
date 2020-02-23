@@ -11,6 +11,8 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <ncpp/config.hpp>
+
 #include <ncpp/error.hpp>
 #include <ncpp/file.hpp>
 #include <ncpp/dataset.hpp>

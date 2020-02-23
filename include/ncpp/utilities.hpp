@@ -11,6 +11,8 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <ncpp/config.hpp>
+
 #include <chrono>
 #include <tuple>
 #include <type_traits>

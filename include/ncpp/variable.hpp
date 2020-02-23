@@ -11,6 +11,8 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <ncpp/config.hpp>
+
 #if defined(NCPP_USE_BOOST) && defined(_MSVC_LANG) && _MSVC_LANG >= 201402L
 #pragma warning(push) 
 #pragma warning(disable:4996) // disable C++17 depreciation warnings with boost::multi_array

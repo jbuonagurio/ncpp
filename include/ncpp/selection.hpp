@@ -11,6 +11,9 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <ncpp/config.hpp>
+
+#include <cstddef>
 #include <string>
 
 namespace ncpp {

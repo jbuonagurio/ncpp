@@ -11,6 +11,8 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <ncpp/config.hpp>
+
 #ifdef NCPP_USE_VARIANT // Requires std::variant (C++17)
 
 #include <ncpp/dataset.hpp>
