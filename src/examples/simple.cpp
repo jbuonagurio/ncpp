@@ -1,24 +1,22 @@
-/**
- * Sample command line build using MSVC:
- *
- * cl simple.cpp /EHsc /MT /std:c++17 /I..\..\include /I..\..\deps\include /link /LIBPATH:..\..\deps\lib
- */
+// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
 
-#include <iostream>
-#include <string>
+#ifndef NCPP_USE_BOOST
+#define NCPP_USE_BOOST
+#endif
 
-// Implements C++20 extensions for <chrono>
-// https://github.com/HowardHinnant/date
-#include <date/date.h>
-
+#ifndef NCPP_USE_DATE_H
 #define NCPP_USE_DATE_H
-#define NCPP_USE_VARIANT // std::variant required for ostream operators.
+#endif
 
 #include <ncpp/ncpp.hpp>
 #include <ncpp/ostream.hpp>
 
-// Automatically link static libraries for MSVC.
-#include "auto_link.h"
+#include <iostream>
+#include <string>
 
 int main(int argc, char *argv[])
 {
@@ -37,6 +35,11 @@ int main(int argc, char *argv[])
     try {
         ncpp::file f(filename, ncpp::file::read);
         ncpp::dataset ds(f);
+        
+        // Print internal attributes
+        std::cout << "_IsNetcdf4 = " << f.is_netcdf4() << "\n";
+        std::cout << "_NCProperties = " << f.properties() << "\n";
+        std::cout << "_SuperblockVersion = " << f.superblock_version() << "\n\n";
         
         // Print CDL metadata (ncdump format)
         std::cout << ds << "\n";
