@@ -13,8 +13,6 @@
 
 #include <ncpp/config.hpp>
 
-#include <netcdf.h>
-
 #include <string>
 #include <type_traits>
 

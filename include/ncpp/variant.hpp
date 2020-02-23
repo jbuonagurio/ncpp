@@ -15,8 +15,6 @@
 
 #ifdef NCPP_USE_VARIANT
 
-#include <netcdf.h>
-
 #include <string>
 #include <unordered_map>
 #include <variant>

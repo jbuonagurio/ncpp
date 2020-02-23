@@ -13,8 +13,6 @@
 
 #include <ncpp/config.hpp>
 
-#include <netcdf.h>
-
 #include <ncpp/attribute.hpp>
 #include <ncpp/check.hpp>
 

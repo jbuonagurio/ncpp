@@ -13,8 +13,6 @@
 
 #include <ncpp/config.hpp>
 
-#include <netcdf.h>
-
 #include <ncpp/check.hpp>
 #include <ncpp/dispatch.hpp>
 
@@ -25,15 +23,43 @@
 namespace ncpp {
 
 class dimensions_type;
+class variable;
 
 /// netCDF dimension type.
 class dimension {
 private:
     dimension(int ncid, int dimid)
-        : _ncid(ncid), _dimid(dimid) {}
+        : _ncid(ncid), _dimid(dimid), _cvarid(-1)
+    {
+        // Get the coordinate variable id associated with the dimension, if any.
+        // See also: iscoordvar function in netcdf-c/ncdump/dumplib.c
+
+        int cvarid, cvartype, cvarndims;
+        int cvardimids[2];
+
+        if ((nc_inq_varid(_ncid, this->name().c_str(), &cvarid) != NC_NOERR)||
+            (nc_inq_vartype(_ncid, cvarid, &cvartype) != NC_NOERR) ||
+            (nc_inq_varndims(_ncid, cvarid, &cvarndims) != NC_NOERR))
+            return;
+        
+        // Ensure the variable is one-dimensional; allow two dimensions for classic strings.
+        if ((cvartype != NC_CHAR && cvarndims != 1) ||
+            (cvartype == NC_CHAR && cvarndims > 2))
+            return;
+
+        // Ensure the variable is indexed by this dimension.
+        if (nc_inq_vardimid(_ncid, cvarid, &cvardimids[0]) != NC_NOERR)
+            return;
+        
+        if (cvardimids[0] != _dimid)
+            return;
+        
+        _cvarid = cvarid;
+    }
 
     int _ncid;
     int _dimid;
+    int _cvarid;
 
 public:
     bool operator<(const dimension& rhs) const {
@@ -78,42 +104,8 @@ public:
         return (it != unlim.end());
     }
 
-    /// Get the coordinate variable id associated with the dimension, if any.
-    /// See also: iscoordvar function in netcdf-c/ncdump/dumplib.c
-    int coordvarid() const noexcept
-    {
-        // Check for a variable with the same name as this dimension.
-        int cvarid;
-        if (nc_inq_varid(_ncid, this->name().c_str(), &cvarid) != NC_NOERR)
-            return -1;
-
-        // Get the variable type.
-        int cvartype;
-        if (nc_inq_vartype(_ncid, cvarid, &cvartype) != NC_NOERR)
-            return -1;
-
-        // Ensure the variable is one-dimensional.
-        // Allow two dimensions for classic strings.
-        int cvarndims;
-        if (nc_inq_varndims(_ncid, cvarid, &cvarndims) != NC_NOERR)
-            return -1;
-        
-        if ((cvartype != NC_CHAR && cvarndims != 1) ||
-            (cvartype == NC_CHAR && cvarndims > 2))
-            return -1;
-
-        // Ensure the variable is indexed by this dimension.
-        int cvardimid[2];
-        if (nc_inq_vardimid(_ncid, cvarid, &cvardimid[0]) != NC_NOERR)
-            return -1;
-
-        if (cvardimid[0] != _dimid)
-            return -1;
-        
-        return cvarid;
-    }
-
     friend class dimensions_type;
+    friend class variable;
 };
 
 } // namespace ncpp

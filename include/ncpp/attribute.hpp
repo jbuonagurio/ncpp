@@ -13,8 +13,6 @@
 
 #include <ncpp/config.hpp>
 
-#include <netcdf.h>
-
 #include <ncpp/check.hpp>
 #include <ncpp/dispatch.hpp>
 #include <ncpp/types.hpp>

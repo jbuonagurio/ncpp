@@ -13,8 +13,6 @@
 
 #include <ncpp/config.hpp>
 
-#include <netcdf.h>
-
 #include <ncpp/check.hpp>
 
 #include <string>
@@ -72,6 +70,39 @@ public:
 
     ~file() {
         nc_close(_ncid);
+    }
+    
+    /// Returns true if this is a netCDF-4 file.
+    bool is_netcdf4() const noexcept
+    {
+        int value;
+        if (nc_get_att_int(_ncid, NC_GLOBAL, "_IsNetcdf4", &value) != NC_NOERR)
+            return false;
+        return value > 0;
+    }
+    
+    /// Returns the netCDF-4 internal _NCProperties attribute or empty string if undefined.
+    std::string properties() const noexcept
+    {
+        std::size_t len;
+        if (nc_inq_att(_ncid, NC_GLOBAL, "_NCProperties", nullptr, &len) != NC_NOERR)
+            return {};
+        
+        std::string value;
+        value.resize(len);
+        if (nc_get_att_text(_ncid, NC_GLOBAL, "_NCProperties", &value[0]) != NC_NOERR)
+            return {};
+        
+        return value;
+    }
+    
+    /// Returns the netCDF-4 internal _SuperblockVersion attribute or -1 if undefined.
+    int superblock_version() const noexcept
+    {
+        int value;
+        if (nc_get_att_int(_ncid, NC_GLOBAL, "_SuperblockVersion", &value) != NC_NOERR)
+            return -1;
+        return value;
     }
 
     friend class dataset;

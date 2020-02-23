@@ -11,7 +11,9 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)4
 
-#if __cplusplus > 201402L
+#include <netcdf.h>
+
+#if (__cplusplus >= 201402L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
 #define NCPP_USE_VARIANT
 #endif
 

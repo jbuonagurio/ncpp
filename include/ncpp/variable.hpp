@@ -11,14 +11,12 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
-#include <ncpp/config.hpp>
-
 #if defined(NCPP_USE_BOOST) && defined(_MSVC_LANG) && _MSVC_LANG >= 201402L
 #pragma warning(push) 
 #pragma warning(disable:4996) // disable C++17 depreciation warnings with boost::multi_array
 #endif // defined(NCPP_USE_BOOST) && defined(_MSVC_LANG) && _MSVC_LANG >= 201402L
 
-#include <netcdf.h>
+#include <ncpp/config.hpp>
 
 #include <ncpp/attributes.hpp>
 #include <ncpp/dimensions.hpp>
@@ -362,12 +360,15 @@ public:
         // Get the associated dimension and index.
         const auto it = std::find(dims.begin(), dims.end(), dims[s.dimension_name]);
         if (it == dims.end())
-            return v;
+            ncpp::detail::throw_error(ncpp::error::invalid_dimension);
         
         const auto index = std::distance(dims.begin(), it);
 
         // Find indexes from dimension coordinates.
-        int cvarid = it->coordvarid();
+        int cvarid = it->_cvarid;
+        if (cvarid == -1)
+            ncpp::detail::throw_error(ncpp::error::variable_not_found);
+        
         variable cv(_ncid, cvarid);
         auto coords = cv.values<T>();
         
@@ -425,7 +426,7 @@ public:
     std::vector<T> coordinates(int index) const
     {   
         // Get the coordinate values.
-        int cvarid = dims.at(index).coordvarid();
+        int cvarid = dims.at(index)._cvarid;
         variable cv(_ncid, cvarid);
         cv._start.at(0) = _start.at(index);
         cv._shape.at(0) = _shape.at(index);
