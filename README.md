@@ -36,23 +36,20 @@ int main(int argc, char *argv[])
     ncpp::file f("ECMWF_ERA-40_subset.nc", ncpp::file::read);
     ncpp::dataset ds(f);
     
-    // Print metadata in CDL format
-    std::cout << ds << "\n";
-    
     // Select the "tcw" variable
     auto tcw = ds.vars["tcw"];
     
     // Subset selection using coordinate variables: "latitude", "longitude", "time"
     date::sys_days start = date::year{2002}/7/1;
-    date::sys_days end = date::year{2002}/7/6;
+    date::sys_days end = date::year{2002}/7/4;
     auto slice = tcw.select(
         ncpp::selection<date::sys_days>{"time", start, end, 2 /* stride */},
-        ncpp::selection<double>{"latitude", 80, 80},
-        ncpp::selection<double>{"longitude", 10, 10}
+        ncpp::selection<double>{"latitude", 77.5, 80},
+        ncpp::selection<double>{"longitude", 7.5, 10}
     );
-    
+
     // Print the selection shape
-    std::cout << "\tshape: (";
+    std::cout << "shape: (";
     std::string separator;
     for (const auto& i : slice.shape()) {
         std::cout << separator << i;
@@ -67,10 +64,32 @@ int main(int argc, char *argv[])
     for (int i = 0; i < coordinates.size(); ++i) {
         auto c = coordinates.at(i);
         auto v = values.at(i);
-        std::cout << "\ttcw(" << date::format("%F %R",std::get<0>(c))
+        std::cout << "tcw(" << date::format("%F %R",std::get<0>(c))
                   << "," << std::get<1>(c)
                   << "," << std::get<2>(c)
-                  << ") = " << v << "\n";
+                  << ")\t= " << v << "\n";
 }
 
+```
+
+Output:
+
+```
+shape: (4,2,2)
+tcw(2002-07-01 12:00,80,7.5)    = -23261
+tcw(2002-07-01 12:00,80,10)     = -23675
+tcw(2002-07-01 12:00,77.5,7.5)  = -23473
+tcw(2002-07-01 12:00,77.5,10)   = -23216
+tcw(2002-07-02 12:00,80,7.5)    = -22941
+tcw(2002-07-02 12:00,80,10)     = -23111
+tcw(2002-07-02 12:00,77.5,7.5)  = -22842
+tcw(2002-07-02 12:00,77.5,10)   = -22928
+tcw(2002-07-03 12:00,80,7.5)    = -24562
+tcw(2002-07-03 12:00,80,10)     = -24639
+tcw(2002-07-03 12:00,77.5,7.5)  = -22612
+tcw(2002-07-03 12:00,77.5,10)   = -22277
+tcw(2002-07-04 12:00,80,7.5)    = -25866
+tcw(2002-07-04 12:00,80,10)     = -26102
+tcw(2002-07-04 12:00,77.5,7.5)  = -22928
+tcw(2002-07-04 12:00,77.5,10)   = -22186
 ```

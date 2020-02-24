@@ -45,11 +45,10 @@ int main(int argc, char *argv[])
         std::cout << ds << "\n";
         
         // Subset selection
-        std::cout << "selection:\n";
         auto tcw = ds.vars["tcw"];
         
         date::sys_days start = date::year{2002}/7/1;
-        date::sys_days end = date::year{2002}/7/6;
+        date::sys_days end = date::year{2002}/7/4;
         auto slice = tcw.select(
             ncpp::selection<date::sys_days>{"time", start, end, 2 /* stride */},
             ncpp::selection<double>{"latitude", 77.5, 80},
@@ -75,10 +74,10 @@ int main(int argc, char *argv[])
             std::cout << "\ttcw(" << date::format("%F %R",std::get<0>(c))
                       << "," << std::get<1>(c)
                       << "," << std::get<2>(c)
-                      << ") = " << v << "\n";
+                      << ")\t= " << v << "\n";
         }
         
-        std::cout << "iterator:\n";
+        // Iterator support
         auto it = slice.begin<double>();
         while (it != slice.end<double>()) {
             std::cout << "\t";
@@ -88,7 +87,6 @@ int main(int argc, char *argv[])
             std::cout << "\t" << *it << "\n";
             std::advance(it, 1);
         }
-        
     }
     catch (std::system_error& e) {
         std::cerr << e.code() << "\n";
