@@ -31,6 +31,7 @@
 #define BOOST_MULTI_ARRAY_NO_GENERATORS 1
 #endif // !BOOST_MULTI_ARRAY_NO_GENERATORS
 #include <boost/multi_array.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
 #endif // NCPP_USE_BOOST
 
 #ifdef NCPP_USE_DATE_H
@@ -43,6 +44,7 @@
 #include <array>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <numeric>
 #include <string>
 #include <tuple>
@@ -211,20 +213,20 @@ public:
     }
     
     /// Get numeric values as a vector.
-    template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T>>::type values() const
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
     {
-        std::vector<T> result;
+        std::vector<T, A> result;
         result.resize(this->size());
         ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data()));
         return result;
     }
     
     /// Get string values as a vector.
-    template <typename T>
-    typename std::enable_if<std::is_same<T, std::string>::value, std::vector<T>>::type values() const
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_same<T, std::string>::value, std::vector<T, A>>::type values() const
     {
-        std::vector<std::string> result;
+        std::vector<std::string, A> result;
         const int nct = this->nctype();
 
         if (nct == NC_CHAR) {
@@ -268,8 +270,8 @@ public:
 #ifdef NCPP_USE_DATE_H
     /// Get time values as a vector of std::chrono::time_point.
     /// Parser assumes a standard Gregorian calendar and CF Conventions for time units attribute.
-    template <typename T>
-    typename std::enable_if<detail::is_chrono_time_point<T>::value, std::vector<T>>::type values() const
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<detail::is_chrono_time_point<T>::value, std::vector<T, A>>::type values() const
     {
         // Read and validate the calendar attribute, if present.
         // We currently assume a proleptic Gregorian calendar.
@@ -334,7 +336,7 @@ public:
         
         // Create the result vector.
         std::vector<double> offsets = values<double>();
-        std::vector<T> result;
+        std::vector<T, A> result;
         result.reserve(offsets.size());
         for (const auto& offset : offsets) {
             std::chrono::duration<double> sec(offset * scale);
@@ -371,8 +373,8 @@ public:
 
 #ifdef NCPP_USE_BOOST
     /// Read numeric values into boost::multi_array.
-    template <typename T, std::size_t N>
-    void read(boost::multi_array<T, N>& values) const
+    template <typename T, std::size_t N, typename A = std::allocator<T>>
+    void read(boost::multi_array<T, N, A>& values) const
     {
         static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
         static_assert(N > 0, "N must be non-zero");
@@ -381,11 +383,28 @@ public:
             ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
 
         // Set the extents.
-        boost::array<typename boost::multi_array<T, N>::size_type, N> ext;
+        boost::array<typename boost::multi_array<T, N, A>::size_type, N> ext;
         std::copy_n(_shape.begin(), N, ext.begin());
         values.resize(ext);
 
         ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), values.data()));
+    }
+
+	/// Get numeric values as a uBLAS matrix.
+    template <typename T, typename A = std::allocator<T>>
+    using matrix_type = boost::numeric::ublas::matrix<T,
+        boost::numeric::ublas::column_major,
+        boost::numeric::ublas::unbounded_array<T, A>>;
+    
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_arithmetic<T>::value, matrix_type<T, A>>::type matrix() const
+    {
+        if (2 != _shape.size())
+            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
+        
+        matrix_type<T, A> result(_shape[0], _shape[1]);
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data().begin()));
+        return result;
     }
 #endif // NCPP_USE_BOOST
     
