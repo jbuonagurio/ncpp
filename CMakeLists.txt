@@ -81,5 +81,5 @@ endif()
 
 if(NCPP_BUILD_EXAMPLES)
   add_executable(simple ${CMAKE_CURRENT_SOURCE_DIR}/src/examples/simple.cpp)
-  target_link_libraries(simple PRIVATE ncpp netcdf)
+  target_link_libraries(simple PRIVATE ncpp)
 endif()

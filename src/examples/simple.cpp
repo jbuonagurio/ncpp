@@ -52,8 +52,8 @@ int main(int argc, char *argv[])
         date::sys_days end = date::year{2002}/7/6;
         auto slice = tcw.select(
             ncpp::selection<date::sys_days>{"time", start, end, 2 /* stride */},
-            ncpp::selection<double>{"latitude", 80, 80},
-            ncpp::selection<double>{"longitude", 10, 10}
+            ncpp::selection<double>{"latitude", 77.5, 80},
+            ncpp::selection<double>{"longitude", 7.5, 10}
         );
         
         // Selection shape
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
             separator = ",";
         }
         std::cout << ")\n";
-        
+
         // Print coordinates and values
         auto coordinates = slice.coordinates<date::sys_seconds, double, double>();
         auto values = slice.values<double>();
@@ -77,6 +77,18 @@ int main(int argc, char *argv[])
                       << "," << std::get<2>(c)
                       << ") = " << v << "\n";
         }
+        
+        std::cout << "iterator:\n";
+        auto it = slice.begin<double>();
+        while (it != slice.end<double>()) {
+            std::cout << "\t";
+            for (const auto& idx : it.index()) {
+                std::cout << idx << ", ";
+            }
+            std::cout << "\t" << *it << "\n";
+            std::advance(it, 1);
+        }
+        
     }
     catch (std::system_error& e) {
         std::cerr << e.code() << "\n";

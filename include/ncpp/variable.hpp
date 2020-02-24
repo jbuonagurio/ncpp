@@ -86,6 +86,42 @@ public:
     /// Attributes associated with the variable.
     ncpp::attributes_type atts;
 
+    variable(const ncpp::variable& rhs) = default;
+    variable(ncpp::variable&& rhs) = default;
+    variable& operator=(const variable& rhs) = default;
+    variable& operator=(variable&& rhs) = default;
+
+    enum class storage_type {
+        contiguous = NC_CONTIGUOUS,
+        chunked = NC_CHUNKED
+    };
+
+    enum class filter_type {
+        lzo        = 305,
+        bzip2      = 307,
+        lzf        = 32000,
+        blosc      = 32001,
+        mafisc     = 32002,
+        snappy     = 32003,
+        lz4        = 32004,
+        apax       = 32005,
+        cbf        = 32006,
+        jpeg_xr    = 32007,
+        bitshuffle = 32008,
+        spdp       = 32009,
+        lpc_rice   = 32010,
+        ccsds_123  = 32011,
+        jpeg_ls    = 32012,
+        zfp        = 32013,
+        fpzip      = 32014,
+        zstandard  = 32015,
+        b3d        = 32016,
+        sz         = 32017,
+        fcidecomp  = 32018,
+        jpeg       = 32019,
+        vbz        = 32020
+    };
+
     bool operator<(const variable& rhs) const {
         return (_varid < rhs._varid);
     }
@@ -126,14 +162,32 @@ public:
         return false;
     }
 
-    /// Returns true if the variable is contiguous in memory.
-    bool is_contiguous() const
+    /// Returns the variable storage mode.
+    storage_type storage_mode() const
     {
-        int contiguous;
-        ncpp::check(nc_inq_var_chunking(_ncid, _varid, &contiguous, nullptr));
-        return (contiguous != 0);
+        int storage;
+        ncpp::check(nc_inq_var_chunking(_ncid, _varid, &storage, nullptr));
+        return static_cast<storage_type>(storage);
     }
-    
+
+    /// Returns the chunk size for each dimension.
+    std::vector<std::size_t> chunk_sizes() const
+    {
+        int storage;
+        std::vector<std::size_t> sizes(dims.size(), 0);
+        ncpp::check(nc_inq_var_chunking(_ncid, _varid, &storage, sizes.data()));
+        return sizes;
+    }
+
+    /// Returns the HDF5 filter type for the variable.
+    /// See also: https://portal.hdfgroup.org/display/support/Filters
+    filter_type filter() const
+    {
+        unsigned int filterid;
+        ncpp::check(nc_inq_var_filter(_ncid, _varid, &filterid, nullptr, nullptr));
+        return static_cast<filter_type>(filterid);
+    }
+
     /// Get the start indexes of the data array.
     std::vector<std::size_t> start() const {
         return _start;
@@ -446,6 +500,93 @@ public:
         
         const auto index = std::distance(dims.begin(), it);
         return coordinates<T>(index);
+    }
+
+    /// Forward iterator for individual values.
+    template <typename T>
+    class iterator
+    {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = T*;
+        using reference = T&;
+        
+        iterator(ncpp::variable& v, std::ptrdiff_t position = 0)
+            : _v(v), _position(position), _index(v._start)
+        {
+            update_cache();
+        }
+
+        iterator(const iterator& rhs) = default;
+        iterator(iterator&& rhs) = default;
+        iterator& operator=(const iterator& rhs) = default;
+        iterator& operator=(iterator&& rhs) = default;
+
+        bool operator==(const iterator& rhs) const {
+            return (_v == rhs._v && _position == rhs._position);
+        }
+
+        bool operator!=(const iterator& rhs) const { 
+            return !(*this == rhs);
+        }
+
+        /// Returns the dimension indices at the current iterator position.
+        std::vector<std::size_t> index() const {
+            return _index;
+        }
+        
+        /// Prefix increment operator.
+        iterator operator++() {
+            ++_position;
+            update_cache();
+            return *this;
+        }
+
+        /// Postfix increment operator.
+        iterator operator++(int) {
+            iterator it = *this;
+            ++_position;
+            update_cache();
+            return it;
+        }
+
+        const T& operator*() const {
+            return _value;
+        }
+
+        T* operator->() const {
+            return &_value;
+        }
+
+    private:
+        void update_cache()
+        {
+            // Calculate dimension indices from position.
+            std::lldiv_t q { _position , 0LL };
+            for (std::ptrdiff_t i = _index.size() - 1;  i >= 0; --i) {
+                q = std::div(q.quot, static_cast<std::ptrdiff_t>(_v._shape[i]));
+                _index[i] = _v._start[i] + q.rem * _v._stride[i];
+            }
+
+            ncpp::check(ncpp::detail::get_var1(_v._ncid, _v._varid, _index.data(), &_value));
+        }
+
+        ncpp::variable& _v;
+        std::ptrdiff_t _position;
+        std::vector<std::size_t> _index;
+        T _value;
+    };
+
+    template <typename T>
+    iterator<T> begin() {
+        return iterator<T>(*this);
+    }
+
+    template <typename T>
+    iterator<T> end() {
+        return iterator<T>(*this, this->size());
     }
 
     friend class variables_type;
