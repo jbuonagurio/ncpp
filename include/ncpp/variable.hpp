@@ -98,32 +98,6 @@ public:
         chunked = NC_CHUNKED
     };
 
-    enum class filter_type {
-        lzo        = 305,
-        bzip2      = 307,
-        lzf        = 32000,
-        blosc      = 32001,
-        mafisc     = 32002,
-        snappy     = 32003,
-        lz4        = 32004,
-        apax       = 32005,
-        cbf        = 32006,
-        jpeg_xr    = 32007,
-        bitshuffle = 32008,
-        spdp       = 32009,
-        lpc_rice   = 32010,
-        ccsds_123  = 32011,
-        jpeg_ls    = 32012,
-        zfp        = 32013,
-        fpzip      = 32014,
-        zstandard  = 32015,
-        b3d        = 32016,
-        sz         = 32017,
-        fcidecomp  = 32018,
-        jpeg       = 32019,
-        vbz        = 32020
-    };
-
     bool operator<(const variable& rhs) const {
         return (_varid < rhs._varid);
     }
@@ -144,8 +118,8 @@ public:
         return std::string(varname);
     }
 
-    /// Get the netCDF type ID for the variable.
-    int nctype() const
+    /// Get the netCDF data type ID for the variable.
+    int data_type() const
     {
         int vartype;
         ncpp::check(nc_inq_vartype(_ncid, _varid, &vartype));
@@ -158,18 +132,18 @@ public:
         if (dims.front().name() == this->name()) {
             if (dims.size() == 1)
                 return true;
-            else if (this->nctype() == NC_CHAR && dims.size() == 2)
+            else if (this->data_type() == NC_CHAR && dims.size() == 2)
                 return true;
         }
         return false;
     }
 
-    /// Returns the variable storage mode.
-    storage_type storage_mode() const
+    /// Returns the variable storage type (`NC_CONTIGUOUS`, `NC_CHUNKED`).
+    int storage_type() const
     {
         int storage;
         ncpp::check(nc_inq_var_chunking(_ncid, _varid, &storage, nullptr));
-        return static_cast<storage_type>(storage);
+        return storage;
     }
 
     /// Returns the chunk size for each dimension.
@@ -181,27 +155,27 @@ public:
         return sizes;
     }
 
-    /// Returns the HDF5 filter type for the variable.
+    /// Returns the HDF5 filter ID for the variable.
     /// See also: https://portal.hdfgroup.org/display/support/Filters
-    filter_type filter() const
+    unsigned int filter_type() const
     {
         unsigned int filterid;
         ncpp::check(nc_inq_var_filter(_ncid, _varid, &filterid, nullptr, nullptr));
-        return static_cast<filter_type>(filterid);
+        return filterid;
     }
 
     /// Get the start indexes of the data array.
-    std::vector<std::size_t> start() const {
+    const std::vector<std::size_t>& start() const {
         return _start;
     }
 
     /// Get the shape of the data array.
-    std::vector<std::size_t> shape() const {
+    const std::vector<std::size_t>& shape() const {
         return _shape;
     }
     
     /// Get the strides of the data array.
-    std::vector<std::ptrdiff_t> stride() const {
+    const std::vector<std::ptrdiff_t>& stride() const {
         return _stride;
     }
 
@@ -211,203 +185,7 @@ public:
         return std::accumulate(_shape.begin(), _shape.end(), 1ull,
             std::multiplies<std::size_t>());
     }
-    
-    /// Get numeric values as a vector.
-    template <typename T, typename A = std::allocator<T>>
-    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
-    {
-        std::vector<T, A> result;
-        result.resize(this->size());
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data()));
-        return result;
-    }
-    
-    /// Get string values as a vector.
-    template <typename T, typename A = std::allocator<T>>
-    typename std::enable_if<std::is_same<T, std::string>::value, std::vector<T, A>>::type values() const
-    {
-        std::vector<std::string, A> result;
-        const int nct = this->nctype();
 
-        if (nct == NC_CHAR) {
-            // For classic strings, the character position is the last dimension.
-            std::size_t vlen = std::accumulate(_shape.begin(), std::prev(_shape.end()), 1ull,
-                std::multiplies<std::size_t>());
-            std::size_t slen = _shape.back();
-
-            // Read the array into a buffer.
-            std::string buffer;
-            buffer.resize(vlen * slen);
-            ncpp::check(nc_get_vars_text(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), &buffer[0]));
-
-            // Iterate over the buffer and extract fixed-width strings.
-            result.reserve(vlen);
-            for (int i = 0; i < vlen; ++i) {
-                std::string s = buffer.substr(i * slen, slen);
-                s.erase(s.find_last_not_of(' ') + 1);
-                result.push_back(s);
-            }
-        }
-        else if (nct == NC_STRING) {
-            std::size_t n = this->size();
-            std::vector<char *> pv(n, nullptr);
-
-            ncpp::check(nc_get_vars_string(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), pv.data()));
-            
-            result.reserve(n);
-            for (const auto& p : pv) {
-                if (p) result.emplace_back(std::string(p));
-            }
-            nc_free_string(n, pv.data());
-        }
-        else {
-            ncpp::detail::throw_error(ncpp::error::invalid_conversion);
-        }
-        
-        return result;
-    }
-    
-#ifdef NCPP_USE_DATE_H
-    /// Get time values as a vector of std::chrono::time_point.
-    /// Parser assumes a standard Gregorian calendar and CF Conventions for time units attribute.
-    template <typename T, typename A = std::allocator<T>>
-    typename std::enable_if<detail::is_chrono_time_point<T>::value, std::vector<T, A>>::type values() const
-    {
-        // Read and validate the calendar attribute, if present.
-        // We currently assume a proleptic Gregorian calendar.
-        if (atts.contains("calendar")) {
-            std::string calendar;
-            atts["calendar"].read(calendar);
-            if (calendar != "gregorian" &&
-                calendar != "standard" &&
-                calendar != "proleptic_gregorian")
-                throw std::runtime_error("Calendar type not implemented");
-        }
-        
-        // Read the units attribute.
-        std::string units;
-        atts["units"].read(units);
-        std::stringstream ss(units);
-        std::string token;
-        
-        // Determine the duration scale factor.
-        // Supported units: week, day (d), hour (hr, h), minute (min), second (sec, s)
-        std::chrono::seconds scale(1);
-        ss >> token;
-        if (token == "weeks" || token == "week") {
-            scale = std::chrono::seconds(604800);
-        }
-        else if (token == "days" || token == "day" || token == "d") {
-            scale = std::chrono::seconds(86400);
-        }
-        else if (token == "hours" || token == "hour" || token == "h") {
-            scale = std::chrono::seconds(3600);
-        }
-        else if (token == "minutes" || token == "minute" || token == "m") {
-            scale = std::chrono::seconds(60);
-        }
-        else if (token != "seconds" && token != "second" && token != "s") {
-            throw std::runtime_error("Invalid time units attribute");
-        }
-        
-        // Check for "since" delimiter.
-        ss >> token;
-        if (token != "since") {
-            throw std::runtime_error("Invalid time units attribute");
-        }
-        
-        // Reset the buffer and parse the date-time string, checking several possible formats.
-        // Assumes CF Convention (ex. "1992-10-8 15:15:42.5 -6:00")
-        ss >> std::ws;
-        std::getline(ss, token);
-        T start;
-        const std::array<std::string, 4> formats = { "%F %T %Ez", "%F %T", "%F %R", "%F" };
-        for (const auto& format : formats) {
-            ss.clear();
-            ss.str(token);
-            ss >> date::parse(format, start);
-            if (!ss.fail())
-                break;
-        }
-        
-        if (ss.fail()) {
-            throw std::runtime_error("Failed to parse time units attribute");
-        }
-        
-        // Create the result vector.
-        std::vector<double> offsets = values<double>();
-        std::vector<T, A> result;
-        result.reserve(offsets.size());
-        for (const auto& offset : offsets) {
-            std::chrono::duration<double> sec(offset * scale);
-            T tp = start + std::chrono::duration_cast<T::duration>(sec);
-            result.push_back(tp);
-        }
-        
-        return result;
-    }
-#endif // NCPP_USE_DATE_H
-
-    /// Read numeric values into std::valarray.
-    template <typename T>
-    void read(std::valarray<T>& values) const
-    {
-        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
-        
-        values.resize(this->size());
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), &values[0]));
-    }
-
-    /// Read numeric values into std::array.
-    template <typename T, std::size_t N>
-    void read(std::array<T, N>& values) const
-    {
-        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
-        static_assert(N > 0, "N must be non-zero");
-
-        if (N != this->size())
-            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
-
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), values.data()));
-    }
-
-#ifdef NCPP_USE_BOOST
-    /// Read numeric values into boost::multi_array.
-    template <typename T, std::size_t N, typename A = std::allocator<T>>
-    void read(boost::multi_array<T, N, A>& values) const
-    {
-        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
-        static_assert(N > 0, "N must be non-zero");
-
-        if (N != _shape.size())
-            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
-
-        // Set the extents.
-        boost::array<typename boost::multi_array<T, N, A>::size_type, N> ext;
-        std::copy_n(_shape.begin(), N, ext.begin());
-        values.resize(ext);
-
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), values.data()));
-    }
-
-	/// Get numeric values as a uBLAS matrix.
-    template <typename T, typename A = std::allocator<T>>
-    using matrix_type = boost::numeric::ublas::matrix<T,
-        boost::numeric::ublas::column_major,
-        boost::numeric::ublas::unbounded_array<T, A>>;
-    
-    template <typename T, typename A = std::allocator<T>>
-    typename std::enable_if<std::is_arithmetic<T>::value, matrix_type<T, A>>::type matrix() const
-    {
-        if (2 != _shape.size())
-            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
-        
-        matrix_type<T, A> result(_shape[0], _shape[1]);
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data().begin()));
-        return result;
-    }
-#endif // NCPP_USE_BOOST
-    
     /// \group select
     /// Select a subset of the data array by coordinate range for one or more dimensions.
     template <typename... Ts>
@@ -496,7 +274,7 @@ public:
     
     /// Get the coordinates for one dimension by index as a vector.
     template <typename T>
-    std::vector<T> coordinates(int index) const
+    std::vector<T> coordinates(std::size_t index) const
     {   
         // Get the coordinate values.
         int cvarid = dims.at(index)._cvarid;
@@ -515,11 +293,197 @@ public:
         // Get the associated dimension and index.
         const auto it = std::find(dims.begin(), dims.end(), dims[dimension_name]);
         if (it == dims.end())
-            return std::vector<T>();
+            ncpp::detail::throw_error(ncpp::error::invalid_dimension);
         
         const auto index = std::distance(dims.begin(), it);
         return coordinates<T>(index);
     }
+
+    /// Copy values to memory.
+    template <typename T>
+    void read(T *out) const
+    {
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), out));
+    }
+
+    /// Get numeric values as a vector.
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
+    {
+        std::vector<T, A> result;
+        result.resize(this->size());
+        read(result.data());
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data()));
+        return result;
+    }
+    
+    /// Get string values.
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_same<T, std::string>::value, std::vector<T, A>>::type values() const
+    {
+        std::vector<std::string, A> result;
+        const int dt = this->data_type();
+
+        if (dt == NC_CHAR) {
+            // For classic strings, the character position is the last dimension.
+            std::size_t vlen = std::accumulate(_shape.begin(), std::prev(_shape.end()), 1ull,
+                std::multiplies<std::size_t>());
+            std::size_t slen = _shape.back();
+
+            // Read the array into a buffer.
+            std::string buffer;
+            buffer.resize(vlen * slen);
+            ncpp::check(nc_get_vars_text(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), &buffer[0]));
+
+            // Iterate over the buffer and extract fixed-width strings.
+            result.reserve(vlen);
+            for (int i = 0; i < vlen; ++i) {
+                std::string s = buffer.substr(i * slen, slen);
+                s.erase(s.find_last_not_of(' ') + 1);
+                result.push_back(s);
+            }
+        }
+        else if (dt == NC_STRING) {
+            std::size_t n = this->size();
+            std::vector<char *> pv(n, nullptr);
+
+            ncpp::check(nc_get_vars_string(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), pv.data()));
+            
+            result.reserve(n);
+            for (const auto& p : pv) {
+                if (p) result.emplace_back(std::string(p));
+            }
+            nc_free_string(n, pv.data());
+        }
+        else {
+            ncpp::detail::throw_error(ncpp::error::invalid_conversion);
+        }
+        
+        return result;
+    }
+    
+#ifdef NCPP_USE_DATE_H
+
+    /// Get time values as a vector of std::chrono::time_point.
+    /// Parser assumes a standard Gregorian calendar and CF Conventions for time units attribute.
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<detail::is_chrono_time_point<T>::value, std::vector<T, A>>::type values() const
+    {
+        // Read and validate the calendar attribute, if present.
+        // We currently assume a proleptic Gregorian calendar.
+        if (atts.contains("calendar")) {
+            std::string calendar = atts["calendar"].value<std::string>();            
+            if (calendar != "gregorian" &&
+                calendar != "standard" &&
+                calendar != "proleptic_gregorian")
+                throw std::runtime_error("Calendar type not implemented");
+        }
+        
+        // Read the units attribute.
+        std::string units = atts["units"].value<std::string>();
+        std::stringstream ss(units);
+        std::string token;
+        
+        // Determine the duration scale factor.
+        // Supported units: week, day (d), hour (hr, h), minute (min), second (sec, s)
+        std::chrono::seconds scale(1);
+        ss >> token;
+        if (token == "weeks" || token == "week") {
+            scale = std::chrono::seconds(604800);
+        }
+        else if (token == "days" || token == "day" || token == "d") {
+            scale = std::chrono::seconds(86400);
+        }
+        else if (token == "hours" || token == "hour" || token == "h") {
+            scale = std::chrono::seconds(3600);
+        }
+        else if (token == "minutes" || token == "minute" || token == "m") {
+            scale = std::chrono::seconds(60);
+        }
+        else if (token != "seconds" && token != "second" && token != "s") {
+            throw std::runtime_error("Invalid time units attribute");
+        }
+        
+        // Check for "since" delimiter.
+        ss >> token;
+        if (token != "since") {
+            throw std::runtime_error("Invalid time units attribute");
+        }
+        
+        // Reset the buffer and parse the date-time string, checking several possible formats.
+        // Assumes CF Convention (ex. "1992-10-8 15:15:42.5 -6:00")
+        ss >> std::ws;
+        std::getline(ss, token);
+        T start;
+        const std::array<std::string, 4> formats = { "%F %T %Ez", "%F %T", "%F %R", "%F" };
+        for (const auto& format : formats) {
+            ss.clear();
+            ss.str(token);
+            ss >> date::parse(format, start);
+            if (!ss.fail())
+                break;
+        }
+        
+        if (ss.fail())
+            throw std::runtime_error("Failed to parse time units attribute");
+        
+        // Create the result vector.
+        std::vector<double> offsets = values<double>();
+        std::vector<T, A> result;
+        result.reserve(offsets.size());
+        for (const auto& offset : offsets) {
+            std::chrono::duration<double> sec(offset * scale);
+            T tp = start + std::chrono::duration_cast<T::duration>(sec);
+            result.push_back(tp);
+        }
+        
+        return result;
+    }
+
+#endif // NCPP_USE_DATE_H
+
+#ifdef NCPP_USE_BOOST
+
+    template <typename T, std::size_t N, typename A = std::allocator<T>>
+    using multi_array_type = boost::multi_array<T, N, A>;
+
+    template <typename T, typename A = std::allocator<T>>
+    using matrix_type = boost::numeric::ublas::matrix<T,
+        boost::numeric::ublas::column_major,
+        boost::numeric::ublas::unbounded_array<T, A>>;
+
+    /// Get numeric values as a boost::multi_array.
+    template <typename T, std::size_t N, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_arithmetic<T>::value, multi_array_type<T, N, A>>::type multi_array() const
+    {
+        if (N != _shape.size())
+            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
+
+        boost::array<typename boost::multi_array<T, N, A>::size_type, N> extents;
+        std::copy_n(_shape.begin(), N, extents.begin());
+        boost::multi_array<T, N, A> result(extents, boost::fortran_storage_order{});
+
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data()));
+        return result;
+    }
+
+	/// Get numeric values as a uBLAS matrix.
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_arithmetic<T>::value, matrix_type<T, A>>::type matrix() const
+    {
+        auto rank = std::count_if(_shape.begin(), _shape.end(), [](auto x) { return x > 1; });
+        if (rank != 2)
+            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
+        
+        std::array<std::size_t, 2> extents;
+        std::copy_if(_shape.begin(), _shape.end(), extents.begin(), [](auto x) { return x > 1; });
+        matrix_type<T, A> result(extents[0], extents[1]);
+        
+        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data().begin()));
+        return result;
+    }
+
+#endif // NCPP_USE_BOOST
 
     /// Forward iterator for individual values.
     template <typename T>
@@ -552,7 +516,7 @@ public:
         }
 
         /// Returns the dimension indices at the current iterator position.
-        std::vector<std::size_t> index() const {
+        const std::vector<std::size_t>& index() const {
             return _index;
         }
         

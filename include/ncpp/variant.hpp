@@ -12,26 +12,23 @@
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
 #include <ncpp/config.hpp>
-
-#ifdef NCPP_USE_VARIANT
+#include <ncpp/error.hpp>
 
 #include <string>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
 namespace ncpp {
 
-// Runtime netCDF type to type mapping. Requires std::variant (C++17).
-
+// Variant for attribute values.
 using variant = std::variant<
-    std::string,
     std::vector<signed char>,
-    std::vector<unsigned char>,
+    std::string,
     std::vector<short>,
     std::vector<int>,
     std::vector<float>,
     std::vector<double>,
+    std::vector<unsigned char>,
     std::vector<unsigned short>,
     std::vector<unsigned int>,
     std::vector<long long>,
@@ -39,22 +36,20 @@ using variant = std::variant<
     std::vector<std::string>
 >;
 
-static inline auto nctype_to_variant = std::unordered_map<int, variant>{
-    { NC_CHAR,   std::string()                     },
-    { NC_BYTE,   std::vector<signed char>()        },
-    { NC_UBYTE,  std::vector<unsigned char>()      },
-    { NC_SHORT,  std::vector<short>()              },
-    { NC_INT,    std::vector<int>()                },
-    { NC_FLOAT,  std::vector<float>()              },
-    { NC_DOUBLE, std::vector<double>()             },
-    { NC_USHORT, std::vector<unsigned short>()     },
-    { NC_UINT,   std::vector<unsigned int>()       },
-    { NC_INT64,  std::vector<long long>()          },
-    { NC_UINT64, std::vector<unsigned long long>() },
-    { NC_STRING, std::vector<std::string>()        }
-};
+//  The variant index follows the order of the netCDF data type IDs.
+static_assert(std::is_same_v<std::variant_alternative_t<NC_BYTE   - 1, variant>, std::vector<signed char>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_CHAR   - 1, variant>, std::string>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_SHORT  - 1, variant>, std::vector<short>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_INT    - 1, variant>, std::vector<int>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_FLOAT  - 1, variant>, std::vector<float>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_DOUBLE - 1, variant>, std::vector<double>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_UBYTE  - 1, variant>, std::vector<unsigned char>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_USHORT - 1, variant>, std::vector<unsigned short>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_UINT   - 1, variant>, std::vector<unsigned int>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_INT64  - 1, variant>, std::vector<long long>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_UINT64 - 1, variant>, std::vector<unsigned long long>>);
+static_assert(std::is_same_v<std::variant_alternative_t<NC_STRING - 1, variant>, std::vector<std::string>>);
 
 } // namespace ncpp
 
-#endif // NCPP_USE_VARIANT
 #endif // NCPP_VARIANT_HPP
