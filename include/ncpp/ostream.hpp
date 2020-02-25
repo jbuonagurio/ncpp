@@ -13,8 +13,6 @@
 
 #include <ncpp/config.hpp>
 
-#ifdef NCPP_USE_VARIANT // Requires std::variant (C++17)
-
 #include <ncpp/dataset.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/variables.hpp>
@@ -70,7 +68,7 @@ inline std::ostream& operator<<(std::ostream& os, const ncpp::dimension& rhs)
 /// Streaming operator for variable type, name and dimensions in CDL format.
 inline std::ostream& operator<<(std::ostream& os, const ncpp::variable& rhs)
 {
-    os << ncpp::nctype_name(rhs.nctype()) << " ";
+    os << ncpp::data_type_name(rhs.data_type()) << " ";
     os << rhs.name() << "(";
     std::string separator;
     for (const auto& dim : rhs.dims) {
@@ -84,8 +82,7 @@ inline std::ostream& operator<<(std::ostream& os, const ncpp::variable& rhs)
 /// Streaming operator for attribute name and value in CDL format.
 inline std::ostream& operator<<(std::ostream& os, const ncpp::attribute& rhs)
 {
-    ncpp::variant v;
-    rhs.read(v);
+    ncpp::variant v = rhs.value();
     os << rhs.name() << " = " << v << " ;";
     return os;
 }
@@ -116,5 +113,4 @@ inline std::ostream& operator<<(std::ostream& os, const ncpp::dataset& rhs)
 
 } // namespace ncpp
 
-#endif // NCPP_USE_VARIANT
 #endif // NCPP_OSTREAM_HPP 
