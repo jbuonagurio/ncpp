@@ -19,6 +19,7 @@
 #include <ncpp/variant.hpp>
 
 #include <array>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <tuple>
@@ -70,78 +71,85 @@ public:
     }
 
     /// Get the netCDF type ID for the attribute.
-    int nctype() const
+    int data_type() const
     {
         int atttype;
         ncpp::check(nc_inq_atttype(_ncid, _varid, _attname.data(), &atttype));
         return atttype;
     }
     
-    /// Read scalar attribute with numeric type.
+    /// Get scalar attribute with numeric type.
     template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value, void>::type read(T& value) const
+    typename std::enable_if<std::is_arithmetic<T>::value, T>::type value() const
     {
-        if (this->length() == 1)
-            ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), value));
-        else
+        if (this->length() != 1)
             ncpp::detail::throw_error(ncpp::error::result_out_of_range);
+        
+        T result;
+        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &result));
+        return result;
     }
 
-    /// Read fixed-length attribute array with numeric type.
-    template <typename T, std::size_t N>
-    void read(std::array<T, N>& values) const
+    /// Get attribute array with numeric type.
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
     {
-        static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
-        static_assert(N > 0, "N must be non-zero");
-
-        if (N != this->length())
-            ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
-
-        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), values.data()));
+        std::vector<T, A> result;
+        std::size_t n = this->length();
+        result.resize(n);
+        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), result.data()));
+        return result;
     }
 
-    /// Read variable-length attribute array with numeric type.
+    /// Get fixed-length string attribute (`NC_CHAR`).
     template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value, void>::type read(std::vector<T>& values) const
+    typename std::enable_if<std::is_same<T, std::string>::value, std::string>::type value() const
     {
+        std::string result;
         std::size_t n = this->length();
-        values.resize(n);
-        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), values.data()));
+        result.resize(n);
+        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &result[0]));
+        return result;
     }
 
-    /// Read fixed-length string attribute (`NC_CHAR`).
-    void read(std::string& value) const
+    /// Get variable-length string attribute (`NC_STRING`).
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_same<T, std::string>::value, std::vector<std::string, A>>::type values() const
     {
-        std::size_t n = this->length();
-        value.resize(n);
-        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &value[0]));
-    }
-
-    /// Read variable-length string attribute (`NC_STRING`).
-    void read(std::vector<std::string>& values) const
-    {
+        std::vector<std::string> result;
         std::size_t n = this->length();
         std::vector<char *> pv(n, nullptr);
         ncpp::check(nc_get_att_string(_ncid, _varid, _attname.c_str(), pv.data()));
-        values.clear();
-        values.reserve(n);
+        result.reserve(n);
         for (const auto& p : pv) {
-            if (p) values.emplace_back(std::string(p));
+            if (p) result.emplace_back(std::string(p));
         }
         nc_free_string(n, pv.data());
+        return result;
     }
 
-#ifdef NCPP_USE_VARIANT
-    /// Read attribute array with variant type.
-    void read(ncpp::variant& values) const
+    /// Get attribute array with variant type.
+    ncpp::variant value() const
     {
-        int i = this->nctype();
-        values = ncpp::nctype_to_variant.at(i);
-        std::visit([&](auto&& arg) {
-            this->read(arg);
-        }, values);
+        int i = this->data_type();
+        switch (i) {
+        case NC_BYTE:   return this->values<signed char>();
+        case NC_CHAR:   return this->value<std::string>();
+        case NC_SHORT:  return this->values<short>();
+        case NC_INT:    return this->values<int>();
+        case NC_FLOAT:  return this->values<float>();
+        case NC_DOUBLE: return this->values<double>();
+        case NC_UBYTE:  return this->values<unsigned char>();
+        case NC_USHORT: return this->values<unsigned short>();
+        case NC_UINT:   return this->values<unsigned int>();
+        case NC_INT64:  return this->values<long long>();
+        case NC_UINT64: return this->values<unsigned long long>();
+        case NC_STRING: return this->values<std::string>();
+        default:
+            ncpp::detail::throw_error(ncpp::error::invalid_data_type);
+            return {};
+        }
     }
-#endif // NCPP_USE_VARIANT
 
     friend class attributes_type;
 };
