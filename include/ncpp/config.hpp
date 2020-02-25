@@ -13,8 +13,4 @@
 
 #include <netcdf.h>
 
-#if (__cplusplus >= 201402L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
-#define NCPP_USE_VARIANT
-#endif
-
 #endif // NCPP_CONFIG_HPP

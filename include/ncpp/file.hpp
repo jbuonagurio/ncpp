@@ -15,6 +15,7 @@
 
 #include <ncpp/check.hpp>
 
+#include <filesystem>
 #include <string>
 
 namespace ncpp {
@@ -26,6 +27,7 @@ class file
 {
 private:
     int _ncid;
+    std::filesystem::path _path;
 
     /// Get the netCDF ID.
     int ncid() const {
@@ -40,26 +42,27 @@ public:
     static constexpr openmode append = NC_NETCDF4 | NC_NOCLOBBER;
     static constexpr openmode truncate = NC_NETCDF4 | NC_CLOBBER;
 
-    file(const std::string& path, openmode mode = read)
+    file(const std::filesystem::path& path, openmode mode = read)
+        : _path(path)
     {
         int rc = NC_EINVAL;
 
         switch (mode) {
         case read:
             // File exists, open read-only.
-            rc = nc_open(path.c_str(), NC_NOWRITE, &_ncid);
+            rc = nc_open(path.string().c_str(), NC_NOWRITE, &_ncid);
             break;
         case write:
             // File exists, open for writing.
-            rc = nc_open(path.c_str(), NC_WRITE, &_ncid);
+            rc = nc_open(path.string().c_str(), NC_WRITE, &_ncid);
             break;
         case append:
             // Create new file, fail if already exists.
-            rc = nc_create(path.c_str(), NC_NETCDF4 | NC_NOCLOBBER, &_ncid);
+            rc = nc_create(path.string().c_str(), NC_NETCDF4 | NC_NOCLOBBER, &_ncid);
             break;
         case truncate:
             // Create new file, even if already exists.
-            rc = nc_create(path.c_str(), NC_NETCDF4 | NC_CLOBBER, &_ncid);
+            rc = nc_create(path.string().c_str(), NC_NETCDF4 | NC_CLOBBER, &_ncid);
             break;
         default:
             break;
@@ -70,6 +73,12 @@ public:
 
     ~file() {
         nc_close(_ncid);
+    }
+
+    /// Returns the path to the open file.
+    const std::filesystem::path& path() const
+    {
+        return _path;
     }
     
     /// Returns true if this is a netCDF-4 file.
