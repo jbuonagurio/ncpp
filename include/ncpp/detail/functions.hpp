@@ -36,9 +36,9 @@ namespace detail {
 
 inline int inq_format(int ncid, std::error_code *ec = nullptr)
 {
-    int format = 0;
-    check(nc_inq_format(ncid, &format), ec);
-    return format;
+    int flags = 0;
+    check(nc_inq_format(ncid, &flags), ec);
+    return flags;
 }
 
 inline std::vector<int> inq_dimids(int ncid, std::error_code *ec = nullptr)
@@ -106,13 +106,11 @@ inline std::optional<int> inq_dimid(int ncid, const std::string& dimname, std::e
     return dimid;
 }
 
-inline std::optional<std::string> inq_dimname(int ncid, int dimid, std::error_code *ec = nullptr)
+inline std::string inq_dimname(int ncid, int dimid, std::error_code *ec = nullptr)
 {
     char dimname[NC_MAX_NAME + 1];
     check(nc_inq_dimname(ncid, dimid, dimname), ec);
-    if (ec && ec->value())
-        return {};
-    return std::string(dimname);
+    return (ec && ec->value()) ? std::string() : dimname;
 }
 
 inline std::size_t inq_dimlen(int ncid, int dimid, std::error_code *ec = nullptr)
@@ -145,13 +143,11 @@ inline std::optional<int> inq_varid(int ncid, const std::string& varname, std::e
     return varid;
 }
 
-inline std::optional<std::string> inq_varname(int ncid, int varid, std::error_code *ec = nullptr)
+inline std::string inq_varname(int ncid, int varid, std::error_code *ec = nullptr)
 {
     char varname[NC_MAX_NAME + 1];
     check(nc_inq_varname(ncid, varid, varname), ec);
-    if (ec && ec->value())
-        return {};
-    return std::string(varname);
+    return (ec && ec->value()) ? std::string() : varname;
 }
 
 inline int inq_vartype(int ncid, int varid, std::error_code *ec = nullptr)
@@ -165,7 +161,7 @@ inline int inq_vartype(int ncid, int varid, std::error_code *ec = nullptr)
 
 inline int inq_varnatts(int ncid, int varid, std::error_code *ec = nullptr)
 {
-    int natts;
+    int natts = 0;
     check(nc_inq_varnatts(ncid, varid, &natts), ec);
     if (ec && ec->value())
         return 0;
@@ -235,19 +231,19 @@ inline std::vector<std::size_t> inq_var_chunking_chunksizes(int ncid, int varid,
 
 inline std::optional<unsigned int> inq_var_filter_id(int ncid, int varid, std::error_code *ec = nullptr)
 {
-    unsigned int filterid;
+    unsigned int filterid = 0;
     check(nc_inq_var_filter(ncid, varid, &filterid, nullptr, nullptr), ec);
     if (ec && ec->value())
         return {};
     return filterid;
 }
 
-inline std::optional<std::string> inq_var_filter_name(int ncid, int varid, std::error_code *ec = nullptr)
+inline std::string inq_var_filter_name(int ncid, int varid, std::error_code *ec = nullptr)
 {
-    unsigned int filterid;
+    unsigned int filterid = 0;
     check(nc_inq_var_filter(ncid, varid, &filterid, nullptr, nullptr), ec);
     if (ec && ec->value())
-        return {};
+        return std::string();
     
     // https://portal.hdfgroup.org/display/support/Filters
     switch (filterid) {
@@ -300,13 +296,11 @@ inline std::optional<int> inq_attid(int ncid, int varid, const std::string& attn
     return attid;
 }
 
-inline std::optional<std::string> inq_attname(int ncid, int varid, int attnum, std::error_code *ec = nullptr)
+inline std::string inq_attname(int ncid, int varid, int attnum, std::error_code *ec = nullptr)
 {
     char attname[NC_MAX_NAME + 1];
     check(nc_inq_attname(ncid, varid, attnum, attname), ec);
-    if (ec && ec->value())
-        return {};
-    return std::string(attname);
+    return (ec && ec->value()) ? std::string() : attname;
 }
 
 inline int inq_atttype(int ncid, int varid, const std::string& attname, std::error_code *ec = nullptr)
@@ -320,7 +314,7 @@ inline int inq_atttype(int ncid, int varid, const std::string& attname, std::err
 
 inline std::size_t inq_attlen(int ncid, int varid, const std::string& attname, std::error_code *ec = nullptr)
 {
-    std::size_t attlen;
+    std::size_t attlen = 0;
     check(nc_inq_attlen(ncid, varid, attname.c_str(), &attlen), ec);
     if (ec && ec->value())
         return 0;

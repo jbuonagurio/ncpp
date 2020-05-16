@@ -18,6 +18,7 @@
 
 #include <ncpp/config.hpp>
 
+#include <ncpp/functions.hpp>
 #include <ncpp/attributes.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/selection.hpp>
@@ -109,17 +110,13 @@ public:
     /// Get the variable name.
     std::string name() const
     {
-        char varname[NC_MAX_NAME + 1];
-        ncpp::check(nc_inq_varname(ncid_, varid_, varname));
-        return std::string(varname);
+        return ncpp::inq_varname(ncid_, varid_);
     }
 
     /// Get the netCDF data type ID for the variable.
     int netcdf_type() const
     {
-        int vartype;
-        ncpp::check(nc_inq_vartype(ncid_, varid_, &vartype));
-        return vartype;
+        return ncpp::inq_vartype(ncid_, varid_);
     }
 
     /// Returns true if the variable is a coordinate variable.
@@ -137,27 +134,27 @@ public:
     /// Returns the variable storage type (`NC_CONTIGUOUS`, `NC_CHUNKED`).
     int storage_type() const
     {
-        int storage;
-        ncpp::check(nc_inq_var_chunking(ncid_, varid_, &storage, nullptr));
-        return storage;
+        return ncpp::inq_var_chunking_storage(ncid_, varid_).value();
     }
 
     /// Returns the chunk size for each dimension.
     std::vector<std::size_t> chunk_sizes() const
     {
-        int storage;
-        std::vector<std::size_t> sizes(dims.size(), 0);
-        ncpp::check(nc_inq_var_chunking(ncid_, varid_, &storage, sizes.data()));
-        return sizes;
+        return ncpp::inq_var_chunking_chunksizes(ncid_, varid_);
     }
 
     /// Returns the HDF5 filter ID for the variable.
     /// See also: https://portal.hdfgroup.org/display/support/Filters
     unsigned int filter_type() const
     {
-        unsigned int filterid;
-        ncpp::check(nc_inq_var_filter(ncid_, varid_, &filterid, nullptr, nullptr));
-        return filterid;
+        return ncpp::inq_var_filter_id(ncid_, varid_).value();
+    }
+
+    /// Returns the HDF5 filter name for the variable.
+    /// See also: https://portal.hdfgroup.org/display/support/Filters
+    std::string filter_name() const
+    {
+        return ncpp::inq_var_filter_name(ncid_, varid_);
     }
 
     /// Get the start indexes of the data array.
@@ -481,12 +478,12 @@ public:
 
 #endif // NCPP_USE_BOOST
 
-    /// Forward iterator for individual values.
+    /// Bidirectional iterator for individual values.
     template <typename T>
     class iterator
     {
     public:
-        using iterator_category = std::forward_iterator_tag;
+        using iterator_category = std::bidirectional_iterator_tag;
         using value_type = T;
         using difference_type = std::ptrdiff_t;
         using pointer = T*;
@@ -495,7 +492,7 @@ public:
         iterator(ncpp::variable& v, std::ptrdiff_t position = 0)
             : var_(v), position_(position), index_(v.start_)
         {
-            update_cache();
+            update_index();
         }
 
         iterator(const iterator& rhs) = default;
@@ -519,7 +516,7 @@ public:
         /// Prefix increment operator.
         iterator operator++() {
             ++position_;
-            update_cache();
+            update_index();
             return *this;
         }
 
@@ -527,20 +524,39 @@ public:
         iterator operator++(int) {
             iterator it = *this;
             ++position_;
-            update_cache();
+            update_index();
+            return it;
+        }
+
+        /// Prefix decrement operator.
+        iterator operator--() {
+            --position_;
+            update_index();
+            return *this;
+        }
+
+        /// Postfix decrement operator.
+        iterator operator--(int) {
+            iterator it = *this;
+            ++position_;
+            update_index();
             return it;
         }
 
         const T& operator*() const {
+            // Read the value at the current index.
+            ncpp::check(ncpp::detail::get_var1(var_.ncid_, var_.varid_, index_.data(), &value_));
             return value_;
         }
 
         T* operator->() const {
+            // Read the value at the current index.
+            ncpp::check(ncpp::detail::get_var1(var_.ncid_, var_.varid_, index_.data(), &value_));
             return &value_;
         }
 
     private:
-        void update_cache()
+        void update_index()
         {
             // Calculate dimension indices from position.
             std::lldiv_t q { position_ , 0LL };
@@ -548,16 +564,16 @@ public:
                 q = std::div(q.quot, static_cast<std::ptrdiff_t>(var_.shape_[i]));
                 index_[i] = var_.start_[i] + q.rem * var_.stride_[i];
             }
-
-            // Read the value at the current index.
-            ncpp::check(ncpp::detail::get_var1(var_.ncid_, var_.varid_, index_.data(), &value_));
         }
 
         ncpp::variable& var_;
         std::ptrdiff_t position_;
         std::vector<std::size_t> index_;
-        T value_;
+        mutable T value_;
     };
+
+    template <typename T>
+    using reverse_iterator = std::reverse_iterator<iterator<T>>;
 
     template <typename T>
     iterator<T> begin() {
@@ -567,6 +583,16 @@ public:
     template <typename T>
     iterator<T> end() {
         return iterator<T>(*this, this->size());
+    }
+    
+    template <typename T>
+    reverse_iterator<T> rbegin() {
+        return reverse_iterator<T>(end());
+    }
+    
+    template <typename T>
+    reverse_iterator<T> rend() {
+        return reverse_iterator<T>(begin());
     }
 
     friend class variables_type;

@@ -83,10 +83,10 @@ inline std::optional<int> inq_dimid(int ncid, const std::string& dimname) {
     return detail::inq_dimid(ncid, dimname);
 }
 
-inline std::optional<std::string> inq_dimname(int ncid, int dimid, std::error_code& ec) {
+inline std::string inq_dimname(int ncid, int dimid, std::error_code& ec) {
     return detail::inq_dimname(ncid, dimid, &ec);
 }
-inline std::optional<std::string> inq_dimname(int ncid, int dimid) {
+inline std::string inq_dimname(int ncid, int dimid) {
     return detail::inq_dimname(ncid, dimid);
 }
 
@@ -104,10 +104,10 @@ inline std::optional<int> inq_varid(int ncid, const std::string& varname) {
     return detail::inq_varid(ncid, varname);
 }
 
-inline std::optional<std::string> inq_varname(int ncid, int varid, std::error_code& ec) {
+inline std::string inq_varname(int ncid, int varid, std::error_code& ec) {
     return detail::inq_varname(ncid, varid, &ec);
 }
-inline std::optional<std::string> inq_varname(int ncid, int varid) {
+inline std::string inq_varname(int ncid, int varid) {
     return detail::inq_varname(ncid, varid);
 }
 
@@ -169,10 +169,10 @@ inline std::optional<unsigned int> inq_var_filter_id(int ncid, int varid) {
     return detail::inq_var_filter_id(ncid, varid);
 }
 
-inline std::optional<std::string> inq_var_filter_name(int ncid, int varid, std::error_code& ec) {
+inline std::string inq_var_filter_name(int ncid, int varid, std::error_code& ec) {
     return detail::inq_var_filter_name(ncid, varid, &ec);
 }
-inline std::optional<std::string> inq_var_filter_name(int ncid, int varid) {
+inline std::string inq_var_filter_name(int ncid, int varid) {
     return detail::inq_var_filter_name(ncid, varid);
 }
 
@@ -190,10 +190,10 @@ inline std::optional<int> inq_attid(int ncid, int varid, const std::string& attn
     return detail::inq_attid(ncid, varid, attname);
 }
 
-inline std::optional<std::string> inq_attname(int ncid, int varid, int attnum, std::error_code& ec) {
+inline std::string inq_attname(int ncid, int varid, int attnum, std::error_code& ec) {
     return detail::inq_attname(ncid, varid, attnum, &ec);
 }
-inline std::optional<std::string> inq_attname(int ncid, int varid, int attnum) {
+inline std::string inq_attname(int ncid, int varid, int attnum) {
     return detail::inq_attname(ncid, varid, attnum);
 }
 
@@ -210,20 +210,6 @@ inline std::size_t inq_attlen(int ncid, int varid, const std::string& attname, s
 inline std::size_t inq_attlen(int ncid, int varid, const std::string& attname) {
     return detail::inq_attlen(ncid, varid, attname);
 }
-
-//inline std::string get_att_text(int ncid, int varid, const std::string& attname, std::error_code& ec) {
-//    return detail::get_att_text(ncid, varid, attname, &ec);
-//}
-//inline std::string get_att_text(int ncid, int varid, const std::string& attname) {
-//    return detail::get_att_text(ncid, varid, attname);
-//}
-
-//inline std::vector<std::string> get_att_string(int ncid, int varid, const std::string& attname, std::error_code& ec) {
-//    return detail::get_att_string(ncid, varid, attname, &ec);
-//}
-//inline std::vector<std::string> get_att_string(int ncid, int varid, const std::string& attname) {
-//    return detail::get_att_string(ncid, varid, attname);
-//}
 
 } // namespace ncpp
 
