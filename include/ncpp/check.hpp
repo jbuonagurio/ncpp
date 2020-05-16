@@ -17,19 +17,18 @@
 
 namespace ncpp {
 
-/// Utility function to check netCDF error code and throw an exception if necessary.
-inline void check(int rc)
+/// Utility function to check netCDF error codes.
+inline void check(int rc, std::error_code *ec = nullptr)
 {
     if (rc != NC_NOERR) {
-        ncpp::detail::throw_error(rc);
+        if (ec)
+            *ec = ncpp::error::make_error_code(rc);
+        else
+            ncpp::detail::throw_error(rc);
     }
-}
-
-/// Utility function to check netCDF error code and throw an exception if necessary.
-inline void check(int rc, const char* location)
-{
-    if (rc != NC_NOERR) {
-        ncpp::detail::throw_error(rc, location);
+    else {
+        if (ec)
+            ec->clear();
     }
 }
 

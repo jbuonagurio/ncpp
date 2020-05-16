@@ -13,6 +13,7 @@
 
 #include <ncpp/config.hpp>
 
+#include <netcdf.h>
 #include <string>
 #include <system_error>
 
@@ -135,12 +136,12 @@ struct is_error_code_enum<ncpp::error::netcdf_errors> : public true_type {};
 namespace ncpp {
 namespace error {
 
-inline std::error_code make_error_code(netcdf_errors e) {
-    return std::error_code(static_cast<int>(e), get_netcdf_category());
+inline std::error_code make_error_code(netcdf_errors c) {
+    return std::error_code(static_cast<int>(c), get_netcdf_category());
 }
 
-inline std::error_code make_error_code(int e) {
-    return std::error_code(e, get_netcdf_category());
+inline std::error_code make_error_code(int c) {
+    return std::error_code(c, get_netcdf_category());
 }
 
 } // namespace error
@@ -153,12 +154,30 @@ namespace detail {
 
 class netcdf_category : public std::error_category {
 public:
-    const char* name() const noexcept {
-        return "netCDF";
-    }
+    virtual const char *name() const noexcept override final { return "netCDF"; }
 
-    std::string message(int value) const {
-        return std::string(nc_strerror(value));
+    virtual std::string message(int c) const override final { return nc_strerror(c); }
+
+    virtual std::error_condition default_error_condition(int c) const noexcept override final
+    {
+        switch (c) {
+        case ENFILE:
+            return make_error_condition(std::errc::too_many_files_open_in_system);
+        case EEXIST:
+            return make_error_condition(std::errc::file_exists);
+        case EINVAL:
+            return make_error_condition(std::errc::invalid_argument);
+        case EPERM:
+            return make_error_condition(std::errc::operation_not_permitted);
+        case ERANGE:
+            return make_error_condition(std::errc::result_out_of_range);
+        case ENOMEM:
+            return make_error_condition(std::errc::not_enough_memory);
+        case EIO:
+            return make_error_condition(std::errc::io_error);
+        default:
+            return std::error_condition(c, *this);
+        }
     }
 };
 
