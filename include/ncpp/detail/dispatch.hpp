@@ -4,8 +4,8 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 
-#ifndef NCPP_DISPATCH_HPP
-#define NCPP_DISPATCH_HPP
+#ifndef NCPP_DETAIL_DISPATCH_HPP
+#define NCPP_DETAIL_DISPATCH_HPP
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
@@ -13,6 +13,7 @@
 
 #include <ncpp/config.hpp>
 
+#include <netcdf.h>
 #include <cstddef>
 
 // This file provides overloads for typed netCDF-C libdispatch functions.
@@ -20,7 +21,9 @@
 namespace ncpp {
 namespace detail {
 
-#pragma region {put,get}_var1
+//
+// {put,get}_var1
+//
 
 inline int put_var1(int ncid, int varid, const std::size_t *indexp, const char *op) {
     return nc_put_var1_text(ncid, varid, indexp, op);
@@ -101,9 +104,9 @@ inline int get_var1(int ncid, int varid, const std::size_t *indexp, char **ip) {
     return nc_get_var1_string(ncid, varid, indexp, ip);
 }
 
-#pragma endregion
-
-#pragma region {put,get}_vara
+//
+// {put,get}_vara
+//
 
 inline int put_vara(int ncid, int varid, const std::size_t *startp, const std::size_t *countp, const char *op) {
     return nc_put_vara_text(ncid, varid, startp, countp, op);
@@ -184,9 +187,9 @@ inline int get_vara(int ncid, int varid, const std::size_t *startp, const std::s
     return nc_get_vara_string(ncid, varid, startp, countp, ip);
 }
 
-#pragma endregion
-
-#pragma region {put,get}_vars
+//
+// {put,get}_vars
+//
 
 inline int put_vars(int ncid, int varid, const std::size_t *startp, const std::size_t *countp, const ptrdiff_t *stridep, const char *op) {
     return nc_put_vars_text(ncid, varid, startp, countp, stridep, op);
@@ -267,9 +270,9 @@ inline int get_vars(int ncid, int varid, const std::size_t *startp, const std::s
     return nc_get_vars_string(ncid, varid, startp, countp, stridep, ip);
 }
 
-#pragma endregion
-
-#pragma region {put,get}_vars
+//
+// {put,get}_varm
+//
 
 inline int put_varm(int ncid, int varid, const std::size_t *startp, const std::size_t *countp, const ptrdiff_t *stridep, const ptrdiff_t *imapp, const char *op) {
     return nc_put_varm_text(ncid, varid, startp, countp, stridep, imapp, op);
@@ -350,9 +353,9 @@ inline int get_varm(int ncid, int varid, const std::size_t *startp, const std::s
     return nc_get_varm_string(ncid, varid, startp, countp, stridep, imapp, ip);
 }
 
-#pragma endregion
-
-#pragma region {put,get}_var
+//
+// {put,get}_var
+//
 
 inline int put_var(int ncid, int varid, const char *op) {
     return nc_put_var_text(ncid, varid, op);
@@ -433,9 +436,9 @@ inline int get_var(int ncid, int varid, char **ip) {
     return nc_get_var_string(ncid, varid, ip);
 }
 
-#pragma endregion
-
-#pragma region {put,get}_att
+//
+// {put,get}_att
+//
 
 inline int put_att(int ncid, int varid, const char *name, std::size_t len, const char *op) {
     return nc_put_att_text(ncid, varid, name, len, op);
@@ -516,9 +519,7 @@ inline int get_att(int ncid, int varid, const char *name, unsigned long long *ip
     return nc_get_att_ulonglong(ncid, varid, name, ip);
 }
 
-#pragma endregion
-
 } // namespace detail
 } // namespace ncpp
 
-#endif // NCPP_DISPATCH_HPP
+#endif // NCPP_DETAIL_DISPATCH_HPP
