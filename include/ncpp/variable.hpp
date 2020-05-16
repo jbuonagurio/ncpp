@@ -20,10 +20,10 @@
 
 #include <ncpp/attributes.hpp>
 #include <ncpp/dimensions.hpp>
-#include <ncpp/dispatch.hpp>
 #include <ncpp/selection.hpp>
 #include <ncpp/utilities.hpp>
 #include <ncpp/check.hpp>
+#include <ncpp/detail/dispatch.hpp>
 
 #include <netcdf.h>
 #include <algorithm>

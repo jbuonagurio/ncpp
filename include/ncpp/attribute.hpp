@@ -14,9 +14,9 @@
 #include <ncpp/config.hpp>
 
 #include <ncpp/check.hpp>
-#include <ncpp/dispatch.hpp>
 #include <ncpp/types.hpp>
 #include <ncpp/variant.hpp>
+#include <ncpp/detail/dispatch.hpp>
 
 #include <netcdf.h>
 #include <array>

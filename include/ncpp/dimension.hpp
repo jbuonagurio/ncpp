@@ -14,7 +14,6 @@
 #include <ncpp/config.hpp>
 
 #include <ncpp/check.hpp>
-#include <ncpp/dispatch.hpp>
 
 #include <netcdf.h>
 #include <algorithm>
