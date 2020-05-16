@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
         filename = "./data/ECMWF_ERA-40_subset.nc";
     
     // Print netCDF library version
-    std::cout << ncpp::library_version() << "\n\n";
+    std::cout << ncpp::inq_libvers() << "\n\n";
     
     try {
         ncpp::file f(filename, ncpp::file::read);
