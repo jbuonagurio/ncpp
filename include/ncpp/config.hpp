@@ -9,8 +9,10 @@
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
-#endif // defined(_MSC_VER) && (_MSC_VER >= 1200)4
+#endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
-#include <netcdf.h>
+//#define NCPP_NO_EXCEPTIONS
+//#define NCPP_USE_BOOST
+//#define NCPP_USE_DATE_H
 
 #endif // NCPP_CONFIG_HPP
