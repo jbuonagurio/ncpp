@@ -32,20 +32,20 @@ private:
     using storage_type = std::set<ncpp::attribute>;
     using value_type = typename storage_type::value_type;
 
-    int _ncid;
-    int _varid;
-    storage_type _atts;
+    int ncid_;
+    int varid_;
+    storage_type atts_;
 
     attributes_type(int ncid, int varid = NC_GLOBAL)
-        : _ncid(ncid), _varid(varid)
+        : ncid_(ncid), varid_(varid)
     {
         int natts;
-        ncpp::check(nc_inq_varnatts(_ncid, _varid, &natts));
+        ncpp::check(nc_inq_varnatts(ncid_, varid_, &natts));
         
         for (int attnum = 0; attnum < natts; ++attnum) {
             char attname[NC_MAX_NAME + 1];
-            ncpp::check(nc_inq_attname(_ncid, _varid, attnum, attname));
-            _atts.emplace(ncpp::attribute(_ncid, _varid, attname));
+            ncpp::check(nc_inq_attname(ncid_, varid_, attnum, attname));
+            atts_.emplace(ncpp::attribute(ncid_, varid_, attname));
         }
     }
 
@@ -54,30 +54,30 @@ public:
     using const_reference = storage_type::const_reference;
     
     const_iterator begin() const noexcept {
-        return _atts.begin();
+        return atts_.begin();
     }
 
     const_iterator end() const noexcept {
-        return _atts.end();
+        return atts_.end();
     }
 
     const_reference front() const noexcept {
-        return *_atts.cbegin();
+        return *atts_.cbegin();
     }
 
     const_reference back() const noexcept {
-        return *_atts.cend();
+        return *atts_.cend();
     }
 
     std::size_t size() const noexcept {
-        return _atts.size();
+        return atts_.size();
     }
 
     /// Get an attribute by name.
     const_reference operator[](const std::string& name) const
     {
-        const auto it = _atts.find(ncpp::attribute(_ncid, _varid, name));
-        if (it == _atts.end())
+        const auto it = atts_.find(ncpp::attribute(ncid_, varid_, name));
+        if (it == atts_.end())
             ncpp::detail::throw_error(ncpp::error::attribute_not_found);
 
         return *it;
@@ -86,7 +86,7 @@ public:
     /// Determine if an attribute is present.
     bool contains(const std::string& name) const noexcept
     {
-        std::size_t count = _atts.count(ncpp::attribute(_ncid, _varid, name));
+        std::size_t count = atts_.count(ncpp::attribute(ncid_, varid_, name));
         return (count > 0) ? true : false;
     }
 

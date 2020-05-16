@@ -32,12 +32,12 @@ private:
     using storage_type = std::vector<ncpp::dimension>;
     using value_type = typename storage_type::value_type;
 
-    int _ncid;
-    int _varid;
-    storage_type _dims;
+    int ncid_;
+    int varid_;
+    storage_type dims_;
 
     explicit dimensions_type(int ncid)
-        : _ncid(ncid), _varid(-1)
+        : ncid_(ncid), varid_(-1)
     {
         std::vector<int> dimids;
         int ndims, ndims1;
@@ -45,30 +45,30 @@ private:
         // Safely get dimids, in case dimensions are currently being added.
         // Based on netCDF-C implementation (dumplib.c).
         do {
-            ncpp::check(nc_inq_dimids(_ncid, &ndims, nullptr, 0));
+            ncpp::check(nc_inq_dimids(ncid_, &ndims, nullptr, 0));
             dimids.resize(ndims + 1);
-            ncpp::check(nc_inq_dimids(_ncid, &ndims1, dimids.data(), 0));
+            ncpp::check(nc_inq_dimids(ncid_, &ndims1, dimids.data(), 0));
         } while (ndims != ndims1);
         
-        _dims.reserve(ndims);
+        dims_.reserve(ndims);
         for (int i = 0; i < ndims; ++i) {
-            _dims.emplace_back(ncpp::dimension(_ncid, dimids.at(i)));
+            dims_.emplace_back(ncpp::dimension(ncid_, dimids.at(i)));
         }
     }
 
     dimensions_type(int ncid, int varid)
-        : _ncid(ncid), _varid(varid)
+        : ncid_(ncid), varid_(varid)
     {
         std::vector<int> dimids;
         int ndims;
 
-        ncpp::check(nc_inq_varndims(_ncid, _varid, &ndims));
+        ncpp::check(nc_inq_varndims(ncid_, varid_, &ndims));
         dimids.resize(ndims);
-        ncpp::check(nc_inq_vardimid(_ncid, _varid, dimids.data()));
+        ncpp::check(nc_inq_vardimid(ncid_, varid_, dimids.data()));
 
-        _dims.reserve(ndims);
+        dims_.reserve(ndims);
         for (int i = 0; i < ndims; ++i) {
-            _dims.emplace_back(ncpp::dimension(_ncid, dimids.at(i)));
+            dims_.emplace_back(ncpp::dimension(ncid_, dimids.at(i)));
         }
     }
     
@@ -77,33 +77,33 @@ public:
     using const_reference = storage_type::const_reference;
     
     const_iterator begin() const noexcept {
-        return _dims.begin();
+        return dims_.begin();
     }
 
     const_iterator end() const noexcept {
-        return _dims.end();
+        return dims_.end();
     }
 
     const_reference front() const noexcept {
-        return *_dims.cbegin();
+        return *dims_.cbegin();
     }
 
     const_reference back() const noexcept {
-        return *_dims.cend();
+        return *dims_.cend();
     }
 
     std::size_t size() const noexcept {
-        return _dims.size();
+        return dims_.size();
     }
 
     /// Get a dimension from its name.
     const_reference operator[](const std::string& name) const
     {
         int dimid;
-        ncpp::check(nc_inq_dimid(_ncid, name.c_str(), &dimid));
+        ncpp::check(nc_inq_dimid(ncid_, name.c_str(), &dimid));
 
-        const auto it = std::find(_dims.begin(), _dims.end(), ncpp::dimension(_ncid, dimid));
-        if (it == _dims.end())
+        const auto it = std::find(dims_.begin(), dims_.end(), ncpp::dimension(ncid_, dimid));
+        if (it == dims_.end())
             ncpp::detail::throw_error(ncpp::error::invalid_dimension);
 
         return *it;
@@ -112,10 +112,10 @@ public:
     /// Get a dimension by index.
     const_reference at(std::size_t n) const
     {
-        if (n >= _dims.size())
+        if (n >= dims_.size())
             ncpp::detail::throw_error(ncpp::error::invalid_dimension);
 
-        auto it = _dims.begin();
+        auto it = dims_.begin();
         std::advance(it, n);
         return *it;
     }

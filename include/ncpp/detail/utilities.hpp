@@ -4,8 +4,8 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 
-#ifndef NCPP_UTILITIES_HPP
-#define NCPP_UTILITIES_HPP
+#ifndef NCPP_DETAIL_UTILITIES_HPP
+#define NCPP_DETAIL_UTILITIES_HPP
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
@@ -114,4 +114,4 @@ auto tuple_cartesian_product(const std::tuple<Ts...> &t)
 } // namespace detail
 } // namespace ncpp
 
-#endif // NCPP_UTILITIES_HPP
+#endif // NCPP_DETAIL_UTILITIES_HPP

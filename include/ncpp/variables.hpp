@@ -33,11 +33,11 @@ private:
     using storage_type = std::set<ncpp::variable>;
     using value_type = typename storage_type::value_type;
 
-    int _ncid;
+    int ncid_;
     storage_type _vars;
 
     explicit variables_type(int ncid)
-        : _ncid(ncid)
+        : ncid_(ncid)
     {
         std::vector<int> varids;
         int nvars, nvars1;
@@ -45,13 +45,13 @@ private:
         // Safely get varids, in case variables are currently being added.
         // Based on netCDF-C implementation (dumplib.c).
         do {
-            ncpp::check(nc_inq_varids(_ncid, &nvars, nullptr));
+            ncpp::check(nc_inq_varids(ncid_, &nvars, nullptr));
             varids.resize(nvars + 1);
-            ncpp::check(nc_inq_varids(_ncid, &nvars1, varids.data()));
+            ncpp::check(nc_inq_varids(ncid_, &nvars1, varids.data()));
         } while (nvars != nvars1);
 
         for (int i = 0; i < nvars; ++i) {
-            _vars.emplace(ncpp::variable(_ncid, varids.at(i)));
+            _vars.emplace(ncpp::variable(ncid_, varids.at(i)));
         }
     }
 
@@ -83,9 +83,9 @@ public:
     const_reference operator[](const std::string& name) const
     {
         int varid;
-        ncpp::check(nc_inq_varid(_ncid, name.c_str(), &varid));
+        ncpp::check(nc_inq_varid(ncid_, name.c_str(), &varid));
         
-        const auto it = _vars.find(ncpp::variable(_ncid, varid));
+        const auto it = _vars.find(ncpp::variable(ncid_, varid));
         if (it == _vars.end())
             ncpp::detail::throw_error(ncpp::error::variable_not_found);
         
@@ -105,8 +105,8 @@ public:
     bool contains(const std::string& name) const noexcept
     {
         int varid;
-        int rc = nc_inq_varid(_ncid, name.c_str(), &varid);
-        if (rc == NC_NOERR && _vars.count(ncpp::variable(_ncid, varid)) > 0)
+        int rc = nc_inq_varid(ncid_, name.c_str(), &varid);
+        if (rc == NC_NOERR && _vars.count(ncpp::variable(ncid_, varid)) > 0)
             return true;
         else
             return false;

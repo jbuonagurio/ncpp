@@ -36,21 +36,21 @@ class attribute
 {
 private:
     attribute(int ncid, int varid, const std::string& attname)
-        : _ncid(ncid), _varid(varid), _attname(attname) {}
+        : ncid_(ncid), varid_(varid), attname_(attname) {}
     
-    int _ncid;
-    int _varid;
-    std::string _attname;
+    int ncid_;
+    int varid_;
+    std::string attname_;
 
 public:
     bool operator<(const attribute& rhs) const {
-        return std::tie(_varid, _attname) <
-               std::tie(rhs._varid, rhs._attname);
+        return std::tie(varid_, attname_) <
+               std::tie(rhs.varid_, rhs.attname_);
     }
     
     bool operator==(const attribute& rhs) const {
-        return std::tie(_ncid, _varid, _attname) ==
-               std::tie(rhs._ncid, rhs._varid, rhs._attname);
+        return std::tie(ncid_, varid_, attname_) ==
+               std::tie(rhs.ncid_, rhs.varid_, rhs.attname_);
     }
 
     bool operator!=(const attribute& rhs) const {
@@ -60,14 +60,14 @@ public:
     /// Get the attribute name.
     std::string name() const
     {
-        return _attname;
+        return attname_;
     }
 
     /// Get the attribute length.
     std::size_t length() const
     {
         std::size_t attlen;
-        ncpp::check(nc_inq_attlen(_ncid, _varid, _attname.data(), &attlen));
+        ncpp::check(nc_inq_attlen(ncid_, varid_, attname_.data(), &attlen));
         return attlen;
     }
 
@@ -75,7 +75,7 @@ public:
     int netcdf_type() const
     {
         int atttype;
-        ncpp::check(nc_inq_atttype(_ncid, _varid, _attname.data(), &atttype));
+        ncpp::check(nc_inq_atttype(ncid_, varid_, attname_.data(), &atttype));
         return atttype;
     }
     
@@ -87,7 +87,7 @@ public:
             ncpp::detail::throw_error(ncpp::error::result_out_of_range);
         
         T result;
-        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &result));
+        ncpp::check(ncpp::detail::get_att(ncid_, varid_, attname_.c_str(), &result));
         return result;
     }
 
@@ -97,7 +97,7 @@ public:
     {
         std::vector<T, A> result;
         result.resize(this->length());
-        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), result.data()));
+        ncpp::check(ncpp::detail::get_att(ncid_, varid_, attname_.c_str(), result.data()));
         return result;
     }
 
@@ -107,7 +107,7 @@ public:
     {
         std::string result;
         result.resize(this->length());
-        ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &result[0]));
+        ncpp::check(ncpp::detail::get_att(ncid_, varid_, attname_.c_str(), &result[0]));
         return result;
     }
 
@@ -118,7 +118,7 @@ public:
         std::vector<std::string> result;
         std::size_t n = this->length();
         std::vector<char *> pv(n, nullptr);
-        ncpp::check(nc_get_att_string(_ncid, _varid, _attname.c_str(), pv.data()));
+        ncpp::check(nc_get_att_string(ncid_, varid_, attname_.c_str(), pv.data()));
         result.reserve(n);
         for (const auto& p : pv) {
             if (p) result.emplace_back(std::string(p));

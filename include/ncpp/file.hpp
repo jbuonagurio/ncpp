@@ -27,12 +27,12 @@ class dataset;
 class file
 {
 private:
-    int _ncid;
+    int ncid_;
     std::filesystem::path _path;
 
     /// Get the netCDF ID.
     int ncid() const {
-        return _ncid;
+        return ncid_;
     }
 
 public:
@@ -51,19 +51,19 @@ public:
         switch (mode) {
         case read:
             // File exists, open read-only.
-            rc = nc_open(path.string().c_str(), NC_NOWRITE, &_ncid);
+            rc = nc_open(path.string().c_str(), NC_NOWRITE, &ncid_);
             break;
         case write:
             // File exists, open for writing.
-            rc = nc_open(path.string().c_str(), NC_WRITE, &_ncid);
+            rc = nc_open(path.string().c_str(), NC_WRITE, &ncid_);
             break;
         case append:
             // Create new file, fail if already exists.
-            rc = nc_create(path.string().c_str(), NC_NETCDF4 | NC_NOCLOBBER, &_ncid);
+            rc = nc_create(path.string().c_str(), NC_NETCDF4 | NC_NOCLOBBER, &ncid_);
             break;
         case truncate:
             // Create new file, even if already exists.
-            rc = nc_create(path.string().c_str(), NC_NETCDF4 | NC_CLOBBER, &_ncid);
+            rc = nc_create(path.string().c_str(), NC_NETCDF4 | NC_CLOBBER, &ncid_);
             break;
         default:
             break;
@@ -73,7 +73,7 @@ public:
     }
 
     ~file() {
-        nc_close(_ncid);
+        nc_close(ncid_);
     }
 
     /// Returns the path to the open file.
@@ -86,7 +86,7 @@ public:
     bool is_netcdf4() const noexcept
     {
         int value;
-        if (nc_get_att_int(_ncid, NC_GLOBAL, "_IsNetcdf4", &value) != NC_NOERR)
+        if (nc_get_att_int(ncid_, NC_GLOBAL, "_IsNetcdf4", &value) != NC_NOERR)
             return false;
         return value > 0;
     }
@@ -95,12 +95,12 @@ public:
     std::string properties() const noexcept
     {
         std::size_t len;
-        if (nc_inq_att(_ncid, NC_GLOBAL, "_NCProperties", nullptr, &len) != NC_NOERR)
+        if (nc_inq_att(ncid_, NC_GLOBAL, "_NCProperties", nullptr, &len) != NC_NOERR)
             return {};
         
         std::string value;
         value.resize(len);
-        if (nc_get_att_text(_ncid, NC_GLOBAL, "_NCProperties", &value[0]) != NC_NOERR)
+        if (nc_get_att_text(ncid_, NC_GLOBAL, "_NCProperties", &value[0]) != NC_NOERR)
             return {};
         
         return value;
@@ -110,7 +110,7 @@ public:
     int superblock_version() const noexcept
     {
         int value;
-        if (nc_get_att_int(_ncid, NC_GLOBAL, "_SuperblockVersion", &value) != NC_NOERR)
+        if (nc_get_att_int(ncid_, NC_GLOBAL, "_SuperblockVersion", &value) != NC_NOERR)
             return -1;
         return value;
     }

@@ -21,9 +21,9 @@
 #include <ncpp/attributes.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/selection.hpp>
-#include <ncpp/utilities.hpp>
 #include <ncpp/check.hpp>
 #include <ncpp/detail/dispatch.hpp>
+#include <ncpp/detail/utilities.hpp>
 
 #include <netcdf.h>
 #include <algorithm>
@@ -67,20 +67,20 @@ class variable
 {
 private:
     variable(int ncid, int varid) :
-        dims(_ncid, _varid), atts(_ncid, _varid), _ncid(ncid), _varid(varid)
+        dims(ncid_, varid_), atts(ncid_, varid_), ncid_(ncid), varid_(varid)
     {
-        _start.resize(dims.size(), 0);
-        _shape.resize(dims.size(), 0);
-        _stride.resize(dims.size(), 1);
-        std::transform(dims.begin(), dims.end(), _shape.begin(),
+        start_.resize(dims.size(), 0);
+        shape_.resize(dims.size(), 0);
+        stride_.resize(dims.size(), 1);
+        std::transform(dims.begin(), dims.end(), shape_.begin(),
             [](const auto& dim) { return dim.length(); });
     }
 
-    int _ncid;
-    int _varid;
-    std::vector<std::size_t> _start;
-    std::vector<std::size_t> _shape;
-    std::vector<std::ptrdiff_t> _stride;
+    int ncid_;
+    int varid_;
+    std::vector<std::size_t> start_;
+    std::vector<std::size_t> shape_;
+    std::vector<std::ptrdiff_t> stride_;
 
 public:
     /// Dimensions associated with the variable.
@@ -95,11 +95,11 @@ public:
     variable& operator=(variable&& rhs) = default;
 
     bool operator<(const variable& rhs) const {
-        return (_varid < rhs._varid);
+        return (varid_ < rhs.varid_);
     }
 
     bool operator==(const variable& rhs) const {
-        return (_ncid == rhs._ncid && _varid == rhs._varid);
+        return (ncid_ == rhs.ncid_ && varid_ == rhs.varid_);
     }
 
     bool operator!=(const variable& rhs) const {
@@ -110,7 +110,7 @@ public:
     std::string name() const
     {
         char varname[NC_MAX_NAME + 1];
-        ncpp::check(nc_inq_varname(_ncid, _varid, varname));
+        ncpp::check(nc_inq_varname(ncid_, varid_, varname));
         return std::string(varname);
     }
 
@@ -118,7 +118,7 @@ public:
     int netcdf_type() const
     {
         int vartype;
-        ncpp::check(nc_inq_vartype(_ncid, _varid, &vartype));
+        ncpp::check(nc_inq_vartype(ncid_, varid_, &vartype));
         return vartype;
     }
 
@@ -138,7 +138,7 @@ public:
     int storage_type() const
     {
         int storage;
-        ncpp::check(nc_inq_var_chunking(_ncid, _varid, &storage, nullptr));
+        ncpp::check(nc_inq_var_chunking(ncid_, varid_, &storage, nullptr));
         return storage;
     }
 
@@ -147,7 +147,7 @@ public:
     {
         int storage;
         std::vector<std::size_t> sizes(dims.size(), 0);
-        ncpp::check(nc_inq_var_chunking(_ncid, _varid, &storage, sizes.data()));
+        ncpp::check(nc_inq_var_chunking(ncid_, varid_, &storage, sizes.data()));
         return sizes;
     }
 
@@ -156,29 +156,29 @@ public:
     unsigned int filter_type() const
     {
         unsigned int filterid;
-        ncpp::check(nc_inq_var_filter(_ncid, _varid, &filterid, nullptr, nullptr));
+        ncpp::check(nc_inq_var_filter(ncid_, varid_, &filterid, nullptr, nullptr));
         return filterid;
     }
 
     /// Get the start indexes of the data array.
     const std::vector<std::size_t>& start() const {
-        return _start;
+        return start_;
     }
 
     /// Get the shape of the data array.
     const std::vector<std::size_t>& shape() const {
-        return _shape;
+        return shape_;
     }
     
     /// Get the strides of the data array.
     const std::vector<std::ptrdiff_t>& stride() const {
-        return _stride;
+        return stride_;
     }
 
     /// Get the total number of elements in the data array.
     std::size_t size() const
     {
-        return std::accumulate(_shape.begin(), _shape.end(), 1ull,
+        return std::accumulate(shape_.begin(), shape_.end(), 1ull,
             std::multiplies<std::size_t>());
     }
 
@@ -216,7 +216,7 @@ public:
         if (cvarid == -1)
             ncpp::detail::throw_error(ncpp::error::variable_not_found);
         
-        variable cv(_ncid, cvarid);
+        variable cv(ncid_, cvarid);
         auto coords = cv.values<T>();
         
         // Handle decreasing coordinates.
@@ -235,12 +235,12 @@ public:
         auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
         
         if (reversed)
-            v._start.at(index) = static_cast<std::size_t>(std::distance(upper, coords.end()));
+            v.start_.at(index) = static_cast<std::size_t>(std::distance(upper, coords.end()));
         else
-            v._start.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
+            v.start_.at(index) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
         
-        v._stride.at(index) = s.stride;
-        v._shape.at(index) = static_cast<std::size_t>(std::distance(lower, upper)) / std::abs(s.stride);
+        v.stride_.at(index) = s.stride;
+        v.shape_.at(index) = static_cast<std::size_t>(std::distance(lower, upper)) / std::abs(s.stride);
         
         return v;
     }
@@ -274,10 +274,10 @@ public:
     {   
         // Get the coordinate values.
         int cvarid = dims.at(index).cvarid_;
-        variable cv(_ncid, cvarid);
-        cv._start.at(0) = _start.at(index);
-        cv._shape.at(0) = _shape.at(index);
-        cv._stride.at(0) = _stride.at(index);
+        variable cv(ncid_, cvarid);
+        cv.start_.at(0) = start_.at(index);
+        cv.shape_.at(0) = shape_.at(index);
+        cv.stride_.at(0) = stride_.at(index);
         auto coords = cv.values<T>();
         return coords;
     }
@@ -299,7 +299,7 @@ public:
     template <typename T>
     void read(T *out) const
     {
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), out));
+        ncpp::check(ncpp::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), out));
     }
 
     /// Get numeric values as a vector.
@@ -309,7 +309,7 @@ public:
         std::vector<T, A> result;
         result.resize(this->size());
         read(result.data());
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data()));
+        ncpp::check(ncpp::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data()));
         return result;
     }
     
@@ -322,14 +322,14 @@ public:
 
         if (nct == NC_CHAR) {
             // For classic strings, the character position is the last dimension.
-            std::size_t vlen = std::accumulate(_shape.begin(), std::prev(_shape.end()), 1ull,
+            std::size_t vlen = std::accumulate(shape_.begin(), std::prev(shape_.end()), 1ull,
                 std::multiplies<std::size_t>());
-            std::size_t slen = _shape.back();
+            std::size_t slen = shape_.back();
 
             // Read the array into a buffer.
             std::string buffer;
             buffer.resize(vlen * slen);
-            ncpp::check(nc_get_vars_text(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), &buffer[0]));
+            ncpp::check(nc_get_vars_text(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), &buffer[0]));
 
             // Iterate over the buffer and extract fixed-width strings.
             result.reserve(vlen);
@@ -343,7 +343,7 @@ public:
             std::size_t n = this->size();
             std::vector<char *> pv(n, nullptr);
 
-            ncpp::check(nc_get_vars_string(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), pv.data()));
+            ncpp::check(nc_get_vars_string(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), pv.data()));
             
             result.reserve(n);
             for (const auto& p : pv) {
@@ -452,14 +452,14 @@ public:
     template <typename T, std::size_t N, typename A = std::allocator<T>>
     typename std::enable_if<std::is_arithmetic<T>::value, multi_array_type<T, N, A>>::type multi_array() const
     {
-        if (N != _shape.size())
+        if (N != shape_.size())
             ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
 
         boost::array<typename boost::multi_array<T, N, A>::size_type, N> extents;
-        std::copy_n(_shape.begin(), N, extents.begin());
+        std::copy_n(shape_.begin(), N, extents.begin());
         boost::multi_array<T, N, A> result(extents, boost::fortran_storage_order{});
 
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data()));
+        ncpp::check(ncpp::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data()));
         return result;
     }
 
@@ -467,15 +467,15 @@ public:
     template <typename T, typename A = std::allocator<T>>
     typename std::enable_if<std::is_arithmetic<T>::value, matrix_type<T, A>>::type matrix() const
     {
-        auto rank = std::count_if(_shape.begin(), _shape.end(), [](auto x) { return x > 1; });
+        auto rank = std::count_if(shape_.begin(), shape_.end(), [](auto x) { return x > 1; });
         if (rank != 2)
             ncpp::detail::throw_error(ncpp::error::invalid_coordinates);
         
         std::array<std::size_t, 2> extents;
-        std::copy_if(_shape.begin(), _shape.end(), extents.begin(), [](auto x) { return x > 1; });
+        std::copy_if(shape_.begin(), shape_.end(), extents.begin(), [](auto x) { return x > 1; });
         matrix_type<T, A> result(extents[0], extents[1]);
         
-        ncpp::check(ncpp::detail::get_vars(_ncid, _varid, _start.data(), _shape.data(), _stride.data(), result.data().begin()));
+        ncpp::check(ncpp::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data().begin()));
         return result;
     }
 
@@ -493,7 +493,7 @@ public:
         using reference = T&;
         
         iterator(ncpp::variable& v, std::ptrdiff_t position = 0)
-            : _v(v), _position(position), _index(v._start)
+            : var_(v), position_(position), index_(v.start_)
         {
             update_cache();
         }
@@ -504,7 +504,7 @@ public:
         iterator& operator=(iterator&& rhs) = default;
 
         bool operator==(const iterator& rhs) const {
-            return (_v == rhs._v && _position == rhs._position);
+            return (var_ == rhs.var_ && position_ == rhs.position_);
         }
 
         bool operator!=(const iterator& rhs) const { 
@@ -513,12 +513,12 @@ public:
 
         /// Returns the dimension indices at the current iterator position.
         const std::vector<std::size_t>& index() const {
-            return _index;
+            return index_;
         }
         
         /// Prefix increment operator.
         iterator operator++() {
-            ++_position;
+            ++position_;
             update_cache();
             return *this;
         }
@@ -526,36 +526,37 @@ public:
         /// Postfix increment operator.
         iterator operator++(int) {
             iterator it = *this;
-            ++_position;
+            ++position_;
             update_cache();
             return it;
         }
 
         const T& operator*() const {
-            return _value;
+            return value_;
         }
 
         T* operator->() const {
-            return &_value;
+            return &value_;
         }
 
     private:
         void update_cache()
         {
             // Calculate dimension indices from position.
-            std::lldiv_t q { _position , 0LL };
-            for (std::ptrdiff_t i = _index.size() - 1;  i >= 0; --i) {
-                q = std::div(q.quot, static_cast<std::ptrdiff_t>(_v._shape[i]));
-                _index[i] = _v._start[i] + q.rem * _v._stride[i];
+            std::lldiv_t q { position_ , 0LL };
+            for (std::ptrdiff_t i = index_.size() - 1;  i >= 0; --i) {
+                q = std::div(q.quot, static_cast<std::ptrdiff_t>(var_.shape_[i]));
+                index_[i] = var_.start_[i] + q.rem * var_.stride_[i];
             }
 
-            ncpp::check(ncpp::detail::get_var1(_v._ncid, _v._varid, _index.data(), &_value));
+            // Read the value at the current index.
+            ncpp::check(ncpp::detail::get_var1(var_.ncid_, var_.varid_, index_.data(), &value_));
         }
 
-        ncpp::variable& _v;
-        std::ptrdiff_t _position;
-        std::vector<std::size_t> _index;
-        T _value;
+        ncpp::variable& var_;
+        std::ptrdiff_t position_;
+        std::vector<std::size_t> index_;
+        T value_;
     };
 
     template <typename T>
