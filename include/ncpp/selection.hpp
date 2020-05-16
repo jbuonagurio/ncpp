@@ -15,8 +15,16 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace ncpp {
+
+struct strided_slice
+{
+    std::vector<std::size_t> start_;
+    std::vector<std::size_t> shape_;
+    std::vector<std::ptrdiff_t> stride_;
+};
 
 /// netCDF coordinate variable selection type.
 template <typename T>
