@@ -18,6 +18,7 @@
 #include <ncpp/variables.hpp>
 #include <ncpp/attributes.hpp>
 
+#include <netcdf.h>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -25,6 +26,30 @@
 #include <variant>
 
 namespace ncpp {
+
+inline std::string netcdf_type_name(int id)
+{
+    switch (id) {
+    case NC_NAT:      return "nat";
+    case NC_BYTE:     return "byte";
+    case NC_CHAR:     return "char";
+    case NC_SHORT:    return "short";
+    case NC_INT:      return "int";
+    case NC_FLOAT:    return "float";
+    case NC_DOUBLE:   return "double";
+    case NC_UBYTE:    return "ubyte";
+    case NC_USHORT:   return "ushort";
+    case NC_UINT:     return "uint";
+    case NC_INT64:    return "int64";
+    case NC_UINT64:   return "uint64";
+    case NC_STRING:   return "string";
+    case NC_VLEN:     return "vlen";
+    case NC_OPAQUE:   return "opaque";
+    case NC_ENUM:     return "enum";
+    case NC_COMPOUND: return "compound";
+    default:          return "unknown";
+    }
+}
 
 /// Streaming operator for variant types.
 inline std::ostream& operator<<(std::ostream& os, const ncpp::variant& v)
@@ -68,7 +93,7 @@ inline std::ostream& operator<<(std::ostream& os, const ncpp::dimension& rhs)
 /// Streaming operator for variable type, name and dimensions in CDL format.
 inline std::ostream& operator<<(std::ostream& os, const ncpp::variable& rhs)
 {
-    os << ncpp::data_type_name(rhs.data_type()) << " ";
+    os << netcdf_type_name(rhs.netcdf_type()) << " ";
     os << rhs.name() << "(";
     std::string separator;
     for (const auto& dim : rhs.dims) {

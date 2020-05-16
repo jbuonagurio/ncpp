@@ -16,6 +16,7 @@
 #include <ncpp/check.hpp>
 #include <ncpp/dispatch.hpp>
 
+#include <netcdf.h>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -29,7 +30,7 @@ class variable;
 class dimension {
 private:
     dimension(int ncid, int dimid)
-        : _ncid(ncid), _dimid(dimid), _cvarid(-1)
+        : ncid_(ncid), dimid_(dimid), cvarid_(-1)
     {
         // Get the coordinate variable id associated with the dimension, if any.
         // See also: iscoordvar function in netcdf-c/ncdump/dumplib.c
@@ -37,9 +38,9 @@ private:
         int cvarid, cvartype, cvarndims;
         int cvardimids[2];
 
-        if ((nc_inq_varid(_ncid, this->name().c_str(), &cvarid) != NC_NOERR)||
-            (nc_inq_vartype(_ncid, cvarid, &cvartype) != NC_NOERR) ||
-            (nc_inq_varndims(_ncid, cvarid, &cvarndims) != NC_NOERR))
+        if ((nc_inq_varid(ncid_, this->name().c_str(), &cvarid) != NC_NOERR)||
+            (nc_inq_vartype(ncid_, cvarid, &cvartype) != NC_NOERR) ||
+            (nc_inq_varndims(ncid_, cvarid, &cvarndims) != NC_NOERR))
             return;
         
         // Ensure the variable is one-dimensional; allow two dimensions for classic strings.
@@ -48,26 +49,26 @@ private:
             return;
 
         // Ensure the variable is indexed by this dimension.
-        if (nc_inq_vardimid(_ncid, cvarid, &cvardimids[0]) != NC_NOERR)
+        if (nc_inq_vardimid(ncid_, cvarid, &cvardimids[0]) != NC_NOERR)
             return;
         
-        if (cvardimids[0] != _dimid)
+        if (cvardimids[0] != dimid_)
             return;
         
-        _cvarid = cvarid;
+        cvarid_ = cvarid;
     }
 
-    int _ncid;
-    int _dimid;
-    int _cvarid;
+    int ncid_;
+    int dimid_;
+    int cvarid_;
 
 public:
     bool operator<(const dimension& rhs) const {
-        return (_dimid < rhs._dimid);
+        return (dimid_ < rhs.dimid_);
     }
 
     bool operator==(const dimension& rhs) const {
-        return (_ncid == rhs._ncid && _dimid == rhs._dimid);
+        return (ncid_ == rhs.ncid_ && dimid_ == rhs.dimid_);
     }
 
     bool operator!=(const dimension& rhs) const {
@@ -78,7 +79,7 @@ public:
     std::string name() const
     {
         char dimname[NC_MAX_NAME + 1];
-        ncpp::check(nc_inq_dimname(_ncid, _dimid, dimname));
+        ncpp::check(nc_inq_dimname(ncid_, dimid_, dimname));
         return std::string(dimname);
     }
 
@@ -86,7 +87,7 @@ public:
     std::size_t length() const
     {
         std::size_t dimlen;
-        ncpp::check(nc_inq_dimlen(_ncid, _dimid, &dimlen));
+        ncpp::check(nc_inq_dimlen(ncid_, dimid_, &dimlen));
         return dimlen;
     }
     
@@ -95,12 +96,12 @@ public:
     {
         std::vector<int> unlim;
         int nunlim;
-        ncpp::check(nc_inq_unlimdims(_ncid, &nunlim, nullptr));
+        ncpp::check(nc_inq_unlimdims(ncid_, &nunlim, nullptr));
         if (nunlim <= 0)
             return false;
         unlim.resize(nunlim);
-        ncpp::check(nc_inq_unlimdims(_ncid, &nunlim, unlim.data()));
-        auto it = std::find(unlim.begin(), unlim.end(), _dimid);
+        ncpp::check(nc_inq_unlimdims(ncid_, &nunlim, unlim.data()));
+        auto it = std::find(unlim.begin(), unlim.end(), dimid_);
         return (it != unlim.end());
     }
 

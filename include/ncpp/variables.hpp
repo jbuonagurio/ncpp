@@ -16,6 +16,7 @@
 #include <ncpp/variable.hpp>
 #include <ncpp/check.hpp>
 
+#include <netcdf.h>
 #include <iterator>
 #include <set>
 #include <string>

@@ -16,6 +16,7 @@
 #include <ncpp/attribute.hpp>
 #include <ncpp/check.hpp>
 
+#include <netcdf.h>
 #include <set>
 #include <string>
 

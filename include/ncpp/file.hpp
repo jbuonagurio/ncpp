@@ -15,6 +15,7 @@
 
 #include <ncpp/check.hpp>
 
+#include <netcdf.h>
 #include <filesystem>
 #include <string>
 

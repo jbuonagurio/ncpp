@@ -14,11 +14,11 @@
 #include <ncpp/config.hpp>
 
 #include <ncpp/error.hpp>
+#include <ncpp/functions.hpp>
 #include <ncpp/file.hpp>
 #include <ncpp/dataset.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/variables.hpp>
 #include <ncpp/attributes.hpp>
-#include <ncpp/version.hpp>
 
 #endif // NCPP_HPP 

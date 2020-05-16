@@ -25,6 +25,20 @@
 #include <ncpp/utilities.hpp>
 #include <ncpp/check.hpp>
 
+#include <netcdf.h>
+#include <algorithm>
+#include <array>
+#include <functional>
+#include <iterator>
+#include <memory>
+#include <numeric>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <valarray>
+#include <vector>
+
 #ifdef NCPP_USE_BOOST
 // Disable global objects boost::extents and boost::indices
 #ifndef BOOST_MULTI_ARRAY_NO_GENERATORS
@@ -39,19 +53,6 @@
 // https://github.com/HowardHinnant/date
 #include <date/date.h>
 #endif
-
-#include <algorithm>
-#include <array>
-#include <functional>
-#include <iterator>
-#include <memory>
-#include <numeric>
-#include <string>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <valarray>
-#include <vector>
 
 // TODO:
 // - Account for scale_factor, add_offset
@@ -93,11 +94,6 @@ public:
     variable& operator=(const variable& rhs) = default;
     variable& operator=(variable&& rhs) = default;
 
-    enum class storage_type {
-        contiguous = NC_CONTIGUOUS,
-        chunked = NC_CHUNKED
-    };
-
     bool operator<(const variable& rhs) const {
         return (_varid < rhs._varid);
     }
@@ -119,7 +115,7 @@ public:
     }
 
     /// Get the netCDF data type ID for the variable.
-    int data_type() const
+    int netcdf_type() const
     {
         int vartype;
         ncpp::check(nc_inq_vartype(_ncid, _varid, &vartype));
@@ -132,7 +128,7 @@ public:
         if (dims.front().name() == this->name()) {
             if (dims.size() == 1)
                 return true;
-            else if (this->data_type() == NC_CHAR && dims.size() == 2)
+            else if (this->netcdf_type() == NC_CHAR && dims.size() == 2)
                 return true;
         }
         return false;
@@ -216,7 +212,7 @@ public:
         const auto index = std::distance(dims.begin(), it);
 
         // Find indexes from dimension coordinates.
-        int cvarid = it->_cvarid;
+        int cvarid = it->cvarid_;
         if (cvarid == -1)
             ncpp::detail::throw_error(ncpp::error::variable_not_found);
         
@@ -277,7 +273,7 @@ public:
     std::vector<T> coordinates(std::size_t index) const
     {   
         // Get the coordinate values.
-        int cvarid = dims.at(index)._cvarid;
+        int cvarid = dims.at(index).cvarid_;
         variable cv(_ncid, cvarid);
         cv._start.at(0) = _start.at(index);
         cv._shape.at(0) = _shape.at(index);
@@ -322,9 +318,9 @@ public:
     typename std::enable_if<std::is_same<T, std::string>::value, std::vector<T, A>>::type values() const
     {
         std::vector<std::string, A> result;
-        const int dt = this->data_type();
+        const int nct = this->netcdf_type();
 
-        if (dt == NC_CHAR) {
+        if (nct == NC_CHAR) {
             // For classic strings, the character position is the last dimension.
             std::size_t vlen = std::accumulate(_shape.begin(), std::prev(_shape.end()), 1ull,
                 std::multiplies<std::size_t>());
@@ -343,7 +339,7 @@ public:
                 result.push_back(s);
             }
         }
-        else if (dt == NC_STRING) {
+        else if (nct == NC_STRING) {
             std::size_t n = this->size();
             std::vector<char *> pv(n, nullptr);
 
@@ -467,7 +463,7 @@ public:
         return result;
     }
 
-	/// Get numeric values as a uBLAS matrix.
+    /// Get numeric values as a uBLAS matrix.
     template <typename T, typename A = std::allocator<T>>
     typename std::enable_if<std::is_arithmetic<T>::value, matrix_type<T, A>>::type matrix() const
     {

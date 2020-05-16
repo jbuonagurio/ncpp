@@ -18,6 +18,7 @@
 #include <ncpp/types.hpp>
 #include <ncpp/variant.hpp>
 
+#include <netcdf.h>
 #include <array>
 #include <memory>
 #include <ostream>
@@ -71,7 +72,7 @@ public:
     }
 
     /// Get the netCDF type ID for the attribute.
-    int data_type() const
+    int netcdf_type() const
     {
         int atttype;
         ncpp::check(nc_inq_atttype(_ncid, _varid, _attname.data(), &atttype));
@@ -95,8 +96,7 @@ public:
     typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
     {
         std::vector<T, A> result;
-        std::size_t n = this->length();
-        result.resize(n);
+        result.resize(this->length());
         ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), result.data()));
         return result;
     }
@@ -106,8 +106,7 @@ public:
     typename std::enable_if<std::is_same<T, std::string>::value, std::string>::type value() const
     {
         std::string result;
-        std::size_t n = this->length();
-        result.resize(n);
+        result.resize(this->length());
         ncpp::check(ncpp::detail::get_att(_ncid, _varid, _attname.c_str(), &result[0]));
         return result;
     }
@@ -131,8 +130,7 @@ public:
     /// Get attribute array with variant type.
     ncpp::variant value() const
     {
-        int i = this->data_type();
-        switch (i) {
+        switch (this->netcdf_type()) {
         case NC_BYTE:   return this->values<signed char>();
         case NC_CHAR:   return this->value<std::string>();
         case NC_SHORT:  return this->values<short>();

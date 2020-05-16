@@ -14,6 +14,7 @@
 #include <ncpp/config.hpp>
 #include <ncpp/error.hpp>
 
+#include <netcdf.h>
 #include <string>
 #include <variant>
 #include <vector>
@@ -36,7 +37,7 @@ using variant = std::variant<
     std::vector<std::string>
 >;
 
-//  The variant index follows the order of the netCDF data type IDs.
+// The variant index follows the order of the netCDF data type IDs.
 static_assert(std::is_same_v<std::variant_alternative_t<NC_BYTE   - 1, variant>, std::vector<signed char>>);
 static_assert(std::is_same_v<std::variant_alternative_t<NC_CHAR   - 1, variant>, std::string>);
 static_assert(std::is_same_v<std::variant_alternative_t<NC_SHORT  - 1, variant>, std::vector<short>>);
