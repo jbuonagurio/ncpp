@@ -31,6 +31,9 @@ message("-- netCDF Version: ${netCDF_VERSION}")
 
 # Target
 set(HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/detail/dispatch.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/detail/functions.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/detail/utilities.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/attribute.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/attributes.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/check.hpp
@@ -38,13 +41,12 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/dataset.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/dimension.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/dimensions.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/dispatch.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/error.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/file.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/inquire.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/ncpp.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/selection.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/types.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/utilities.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/variable.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/variables.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/variant.hpp

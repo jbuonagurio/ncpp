@@ -49,12 +49,6 @@
 #include <boost/numeric/ublas/matrix.hpp>
 #endif // NCPP_USE_BOOST
 
-#ifdef NCPP_USE_DATE_H
-// Implements C++20 extensions for <chrono>
-// https://github.com/HowardHinnant/date
-#include <date/date.h>
-#endif
-
 // TODO:
 // - Account for scale_factor, add_offset
 // - Use optional for _FillValue, missing_value, valid_min, valid_max, valid_range
@@ -357,76 +351,22 @@ public:
     
 #ifdef NCPP_USE_DATE_H
 
-    /// Get time values as a vector of std::chrono::time_point.
-    /// Parser assumes a standard Gregorian calendar and CF Conventions for time units attribute.
+    /// Get time values as a vector of std::chrono::time_point, typically
+    /// date::sys_days or date::sys_seconds. Assumes Gregorian calendar
+    /// and CF Conventions for time units. Throws attribute_not_found
+    /// error if the calendar or units attribute cannot be parsed.
     template <typename T, typename A = std::allocator<T>>
     typename std::enable_if<detail::is_chrono_time_point<T>::value, std::vector<T, A>>::type values() const
     {
-        // Read and validate the calendar attribute, if present.
-        // We currently assume a proleptic Gregorian calendar.
-        if (atts.contains("calendar")) {
-            std::string calendar = atts["calendar"].value<std::string>();            
-            if (calendar != "gregorian" &&
-                calendar != "standard" &&
-                calendar != "proleptic_gregorian")
-                throw std::runtime_error("Calendar type not implemented");
-        }
-        
-        // Read the units attribute.
-        std::string units = atts["units"].value<std::string>();
-        std::stringstream ss(units);
-        std::string token;
-        
-        // Determine the duration scale factor.
-        // Supported units: week, day (d), hour (hr, h), minute (min), second (sec, s)
-        std::chrono::seconds scale(1);
-        ss >> token;
-        if (token == "weeks" || token == "week") {
-            scale = std::chrono::seconds(604800);
-        }
-        else if (token == "days" || token == "day" || token == "d") {
-            scale = std::chrono::seconds(86400);
-        }
-        else if (token == "hours" || token == "hour" || token == "h") {
-            scale = std::chrono::seconds(3600);
-        }
-        else if (token == "minutes" || token == "minute" || token == "m") {
-            scale = std::chrono::seconds(60);
-        }
-        else if (token != "seconds" && token != "second" && token != "s") {
-            throw std::runtime_error("Invalid time units attribute");
-        }
-        
-        // Check for "since" delimiter.
-        ss >> token;
-        if (token != "since") {
-            throw std::runtime_error("Invalid time units attribute");
-        }
-        
-        // Reset the buffer and parse the date-time string, checking several possible formats.
-        // Assumes CF Convention (ex. "1992-10-8 15:15:42.5 -6:00")
-        ss >> std::ws;
-        std::getline(ss, token);
-        T start;
-        const std::array<std::string, 4> formats = { "%F %T %Ez", "%F %T", "%F %R", "%F" };
-        for (const auto& format : formats) {
-            ss.clear();
-            ss.str(token);
-            ss >> date::parse(format, start);
-            if (!ss.fail())
-                break;
-        }
-        
-        if (ss.fail())
-            throw std::runtime_error("Failed to parse time units attribute");
-        
+        auto cft = ncpp::parse_cf_time<T::clock, T::duration>(ncid_, varid_);
+
         // Create the result vector.
         std::vector<double> offsets = values<double>();
         std::vector<T, A> result;
         result.reserve(offsets.size());
         for (const auto& offset : offsets) {
-            std::chrono::duration<double> sec(offset * scale);
-            T tp = start + std::chrono::duration_cast<T::duration>(sec);
+            std::chrono::duration<double> sec(offset * cft.scale);
+            T tp = cft.start + std::chrono::duration_cast<T::duration>(sec);
             result.push_back(tp);
         }
         
@@ -480,7 +420,7 @@ public:
 
     /// Bidirectional iterator for individual values.
     template <typename T>
-    class iterator
+    class value_iterator
     {
     public:
         using iterator_category = std::bidirectional_iterator_tag;
@@ -489,88 +429,73 @@ public:
         using pointer = T*;
         using reference = T&;
         
-        iterator(ncpp::variable& v, std::ptrdiff_t position = 0)
-            : var_(v), position_(position), index_(v.start_)
-        {
-            update_index();
-        }
+        value_iterator(ncpp::variable& v, std::ptrdiff_t position = 0)
+            : var_(v), position_(position) {}
 
-        iterator(const iterator& rhs) = default;
-        iterator(iterator&& rhs) = default;
-        iterator& operator=(const iterator& rhs) = default;
-        iterator& operator=(iterator&& rhs) = default;
+        value_iterator(const value_iterator& rhs) = default;
+        value_iterator(value_iterator&& rhs) = default;
+        value_iterator& operator=(const value_iterator& rhs) = default;
+        value_iterator& operator=(value_iterator&& rhs) = default;
 
-        bool operator==(const iterator& rhs) const {
+        bool operator==(const value_iterator& rhs) const {
             return (var_ == rhs.var_ && position_ == rhs.position_);
         }
 
-        bool operator!=(const iterator& rhs) const { 
+        bool operator!=(const value_iterator& rhs) const { 
             return !(*this == rhs);
         }
 
-        /// Returns the dimension indices at the current iterator position.
-        const std::vector<std::size_t>& index() const {
-            return index_;
+        /// Calculate the dimension indices from the current iterator position.
+        std::vector<std::size_t> index() const {
+            std::vector<std::size_t> idx = var_.start_;
+            std::lldiv_t q { position_ , 0LL };
+            for (std::ptrdiff_t i = idx.size() - 1;  i >= 0; --i) {
+                q = std::div(q.quot, static_cast<std::ptrdiff_t>(var_.shape_[i]));
+                idx[i] = var_.start_[i] + q.rem * var_.stride_[i];
+            }
+            return idx;
         }
         
         /// Prefix increment operator.
-        iterator operator++() {
+        value_iterator operator++() {
             ++position_;
-            update_index();
             return *this;
         }
 
         /// Postfix increment operator.
-        iterator operator++(int) {
+        value_iterator operator++(int) {
             iterator it = *this;
             ++position_;
-            update_index();
             return it;
         }
 
         /// Prefix decrement operator.
-        iterator operator--() {
+        value_iterator operator--() {
             --position_;
-            update_index();
             return *this;
         }
 
         /// Postfix decrement operator.
-        iterator operator--(int) {
+        value_iterator operator--(int) {
             iterator it = *this;
             ++position_;
-            update_index();
             return it;
         }
 
-        const T& operator*() const {
-            // Read the value at the current index.
-            ncpp::check(ncpp::detail::get_var1(var_.ncid_, var_.varid_, index_.data(), &value_));
-            return value_;
-        }
-
-        T* operator->() const {
-            // Read the value at the current index.
-            ncpp::check(ncpp::detail::get_var1(var_.ncid_, var_.varid_, index_.data(), &value_));
-            return &value_;
+        T operator*() const {
+            auto idx = index();
+            T value = {};
+            ncpp::check(ncpp::detail::get_var1(var_.ncid_, var_.varid_, idx.data(), &value));
+            return value;
         }
 
     private:
-        void update_index()
-        {
-            // Calculate dimension indices from position.
-            std::lldiv_t q { position_ , 0LL };
-            for (std::ptrdiff_t i = index_.size() - 1;  i >= 0; --i) {
-                q = std::div(q.quot, static_cast<std::ptrdiff_t>(var_.shape_[i]));
-                index_[i] = var_.start_[i] + q.rem * var_.stride_[i];
-            }
-        }
-
         ncpp::variable& var_;
         std::ptrdiff_t position_;
-        std::vector<std::size_t> index_;
-        mutable T value_;
     };
+
+    template <typename T>
+    using iterator = value_iterator<T>;
 
     template <typename T>
     using reverse_iterator = std::reverse_iterator<iterator<T>>;

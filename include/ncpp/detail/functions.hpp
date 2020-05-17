@@ -23,6 +23,16 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <type_traits>
+
+#ifdef NCPP_USE_DATE_H
+// Implements C++20 extensions for <chrono>
+// https://github.com/HowardHinnant/date
+#include <date/date.h>
+#include <array>
+#include <istream>
+#include <sstream>
+#endif
 
 namespace ncpp {
 namespace detail {
@@ -321,37 +331,13 @@ inline std::size_t inq_attlen(int ncid, int varid, const std::string& attname, s
     return attlen;
 }
 
-// libdispatch get_var wrapper for arithmetic types.
+// libdispatch get_att wrapper for arithmetic types. Returns Vector.
 
-template <class Container>
-typename std::enable_if<std::is_arithmetic<typename Container::value_type>::value, Container>::type
-get_var(int ncid, int varid, std::error_code *ec = nullptr)
-{
-    Container result;
-    auto dimids = inq_vardimid(ncid, varid, ec);
-    if (dimids.size() == 0)
-        return result;
-    
-    std::size_t size = 1;
-    for (const auto& dimid : dimids) {
-        std::size_t dimlen = inq_dimlen(ncid, dimid, ec);
-        if (dimlen == 0)
-            return result;
-        size *= dimlen;
-    }
-
-    result.resize(size);
-    check(get_var(ncid, varid, result.data()), ec);
-    return result;
-}
-
-// libdispatch get_att wrapper for arithmetic types.
-
-template <class Container>
-typename std::enable_if_t<std::is_arithmetic_v<typename Container::value_type>, Container>
+template <class Vector>
+typename std::enable_if_t<!std::is_same_v<Vector, std::string> && std::is_arithmetic_v<typename Vector::value_type>, Vector>
 get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = nullptr)
 {
-    Container result;
+    Vector result;
     std::size_t attlen = inq_attlen(ncid, varid, attname, ec);
     if (attlen == 0)
         return result;
@@ -361,7 +347,7 @@ get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = n
     return result;
 }
 
-// libdispatch get_att wrapper for NC_CHAR strings.
+// libdispatch get_att wrapper for NC_CHAR attributes. Returns std::string.
 
 template <class T>
 typename std::enable_if_t<std::is_same_v<T, std::string>, std::string>
@@ -377,7 +363,7 @@ get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = n
     return result;
 }
 
-// libdispatch get_att wrapper for NC_STRING strings.
+// libdispatch get_att wrapper for NC_STRING attributes. Returns Vector<std::string>.
 
 template <class Vector>
 typename std::enable_if_t<std::is_same_v<typename Vector::value_type, std::string>, Vector>
@@ -401,6 +387,101 @@ get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = n
     nc_free_string(attlen, pv.data());
     return result;
 }
+
+// libdispatch get_var wrapper for arithmetic types. Returns Vector.
+
+template <class Vector>
+typename std::enable_if<std::is_arithmetic<typename Vector::value_type>::value, Vector>::type
+get_var(int ncid, int varid, std::error_code *ec = nullptr)
+{
+    Vector result;
+    auto dimids = inq_vardimid(ncid, varid, ec);
+    if (dimids.size() == 0)
+        return result;
+    
+    std::size_t size = 1;
+    for (const auto& dimid : dimids) {
+        std::size_t dimlen = inq_dimlen(ncid, dimid, ec);
+        if (dimlen == 0)
+            return result;
+        size *= dimlen;
+    }
+
+    result.resize(size);
+    check(get_var(ncid, varid, result.data()), ec);
+    return result;
+}
+
+// Parse CF convention time attributes using Gregorian calendar.
+// Sets error code to NC_ENOTATT (invalid attribute) on parsing error.
+
+#ifdef NCPP_USE_DATE_H
+
+template <class C, class D>
+ncpp::cf_time<C, D> parse_cf_time(int ncid, int varid, std::error_code *ec = nullptr)
+{
+    ncpp::cf_time<C, D> cft = {};
+
+    // Validate the calendar attribute, if present.
+    std::error_code ec1;
+    auto cal = get_att<std::string>(ncid, varid, "calendar", &ec1);
+    if (!ec1.value() && cal != "gregorian" && cal != "standard" && cal != "proleptic_gregorian") {
+        check(NC_ENOTATT, ec);
+        return {};
+    }
+
+    // Read the units attribute.
+    auto units = get_att<std::string>(ncid, varid, "units", ec);
+    std::stringstream ss(units);
+    std::string token;
+
+    // Determine the duration scale factor.
+    // Supported units: week, day (d), hour (hr, h), minute (min), second (sec, s)
+    ss >> token;
+    if (token == "weeks" || token == "week") {
+        cft.scale = std::chrono::seconds(604800);
+    } else if (token == "days" || token == "day" || token == "d") {
+        cft.scale = std::chrono::seconds(86400);
+    } else if (token == "hours" || token == "hour" || token == "h") {
+        cft.scale = std::chrono::seconds(3600);
+    } else if (token == "minutes" || token == "minute" || token == "m") {
+        cft.scale = std::chrono::seconds(60);
+    } else if (token == "seconds" && token == "second" && token == "s") {
+        cft.scale = std::chrono::seconds(1);
+    } else {
+        check(NC_ENOTATT, ec);
+        return {};
+    }
+    
+    // Check for "since" delimiter.
+    ss >> token;
+    if (token != "since") {
+        check(NC_ENOTATT, ec);
+        return {};
+    }
+    
+    // Reset the buffer and parse the date-time string, checking several possible formats.
+    // Assumes CF Convention (ex. "1992-10-8 15:15:42.5 -6:00")
+    ss >> std::ws;
+    std::getline(ss, token);
+    const std::array<std::string, 4> formats = { "%F %T %Ez", "%F %T", "%F %R", "%F" };
+    for (const auto& format : formats) {
+        ss.clear();
+        ss.str(token);
+        ss >> date::parse(format, cft.start);
+        if (!ss.fail())
+            break;
+    }
+    
+    if (ss.fail()) {
+        check(NC_ENOTATT, ec);
+        return {};
+    }
+    
+    return cft;
+}
+
+#endif // NCPP_USE_DATE_H
 
 } // namespace detail
 } // namespace ncpp

@@ -211,6 +211,19 @@ inline std::size_t inq_attlen(int ncid, int varid, const std::string& attname) {
     return detail::inq_attlen(ncid, varid, attname);
 }
 
+#ifdef NCPP_USE_DATE_H
+
+template <class C, class D>
+ncpp::cf_time<C, D> parse_cf_time(int ncid, int varid, std::error_code& ec) {
+    return detail::parse_cf_time<C, D>(ncid, varid, &ec);
+}
+template <class C, class D>
+ncpp::cf_time<C, D> parse_cf_time(int ncid, int varid) {
+    return detail::parse_cf_time<C, D>(ncid, varid);
+}
+
+#endif // NCPP_USE_DATE_H
+
 } // namespace ncpp
 
 #endif // NCPP_FUNCTIONS_HPP

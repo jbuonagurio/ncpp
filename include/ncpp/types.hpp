@@ -14,6 +14,7 @@
 #include <ncpp/config.hpp>
 
 #include <netcdf.h>
+#include <chrono>
 #include <string>
 #include <type_traits>
 
@@ -54,6 +55,14 @@ struct var_chunk_cache {
     std::size_t size;   // total size of the raw data chunk cache in bytes
     std::size_t nelems; // number of chunk slots in the raw data chunk cache hash table
     float preemption;   // premption value, between 0 and 1 (inclusive)
+};
+
+// Parsed CF time attribute.
+
+template <class C, class D>
+struct cf_time {
+    std::chrono::time_point<C, D> start;
+    std::chrono::seconds scale;
 };
 
 // Map from netCDF type to value type.
