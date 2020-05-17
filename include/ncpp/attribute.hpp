@@ -66,65 +66,41 @@ public:
     /// Get the attribute length.
     std::size_t length() const
     {
-        std::size_t attlen;
-        ncpp::check(nc_inq_attlen(ncid_, varid_, attname_.data(), &attlen));
-        return attlen;
+        return ncpp::inq_attlen(ncid_, varid_, attname_);
     }
 
     /// Get the netCDF type ID for the attribute.
     int netcdf_type() const
     {
-        int atttype;
-        ncpp::check(nc_inq_atttype(ncid_, varid_, attname_.data(), &atttype));
-        return atttype;
+        return ncpp::inq_atttype(ncid_, varid_, attname_);
     }
     
-    /// Get scalar attribute with numeric type.
+    /// Get scalar attribute with arithmetic type.
     template <typename T>
     typename std::enable_if<std::is_arithmetic<T>::value, T>::type value() const
     {
-        if (this->length() != 1)
-            ncpp::detail::throw_error(ncpp::error::result_out_of_range);
-        
-        T result;
-        ncpp::check(ncpp::detail::get_att(ncid_, varid_, attname_.c_str(), &result));
-        return result;
+        return ncpp::get_att<T>(ncid_, varid_, attname_);
     }
 
-    /// Get attribute array with numeric type.
-    template <typename T, typename A = std::allocator<T>>
-    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
-    {
-        std::vector<T, A> result;
-        result.resize(this->length());
-        ncpp::check(ncpp::detail::get_att(ncid_, varid_, attname_.c_str(), result.data()));
-        return result;
-    }
-
-    /// Get fixed-length string attribute (`NC_CHAR`).
+    /// Get scalar attribute with fixed-length string type (`NC_CHAR`).
     template <typename T>
     typename std::enable_if<std::is_same<T, std::string>::value, std::string>::type value() const
     {
-        std::string result;
-        result.resize(this->length());
-        ncpp::check(ncpp::detail::get_att(ncid_, varid_, attname_.c_str(), &result[0]));
-        return result;
+        return ncpp::get_att<T>(ncid_, varid_, attname_);
     }
 
-    /// Get variable-length string attribute (`NC_STRING`).
+    /// Get attribute array with arithmetic type.
+    template <typename T, typename A = std::allocator<T>>
+    typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
+    {
+        return ncpp::get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
+    }
+
+    /// Get attribute array with variable-length string type (`NC_STRING`).
     template <typename T, typename A = std::allocator<T>>
     typename std::enable_if<std::is_same<T, std::string>::value, std::vector<std::string, A>>::type values() const
     {
-        std::vector<std::string> result;
-        std::size_t n = this->length();
-        std::vector<char *> pv(n, nullptr);
-        ncpp::check(nc_get_att_string(ncid_, varid_, attname_.c_str(), pv.data()));
-        result.reserve(n);
-        for (const auto& p : pv) {
-            if (p) result.emplace_back(std::string(p));
-        }
-        nc_free_string(n, pv.data());
-        return result;
+        return ncpp::get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
     }
 
     /// Get attribute array with variant type.

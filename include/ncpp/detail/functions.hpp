@@ -331,23 +331,24 @@ inline std::size_t inq_attlen(int ncid, int varid, const std::string& attname, s
     return attlen;
 }
 
-// libdispatch get_att wrapper for arithmetic types. Returns Vector.
+// Get scalar attribute with arithmetic type.
 
-template <class Vector>
-typename std::enable_if_t<!std::is_same_v<Vector, std::string> && std::is_arithmetic_v<typename Vector::value_type>, Vector>
+template <class T>
+typename std::enable_if_t<std::is_arithmetic_v<T>, T>
 get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = nullptr)
 {
-    Vector result;
+    T result = {};
     std::size_t attlen = inq_attlen(ncid, varid, attname, ec);
-    if (attlen == 0)
+    if (attlen != 1) {
+        check(NC_ERANGE, ec);
         return result;
-    
-    result.resize(attlen);
-    check(get_att(ncid, attid, result.data()), ec);
+    }
+
+    check(get_att(ncid, varid, attname.c_str(), &result), ec);
     return result;
 }
 
-// libdispatch get_att wrapper for NC_CHAR attributes. Returns std::string.
+// Get scalar attribute with fixed-length string type (`NC_CHAR`).
 
 template <class T>
 typename std::enable_if_t<std::is_same_v<T, std::string>, std::string>
@@ -363,20 +364,36 @@ get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = n
     return result;
 }
 
-// libdispatch get_att wrapper for NC_STRING attributes. Returns Vector<std::string>.
+// Get attribute array with arithmetic type.
+
+template <class Container>
+typename std::enable_if_t<std::is_arithmetic_v<typename Container::value_type>, Container>
+get_att_array(int ncid, int varid, const std::string& attname, std::error_code *ec = nullptr)
+{
+    Container result;
+    std::size_t attlen = inq_attlen(ncid, varid, attname, ec);
+    if (attlen == 0)
+        return result;
+    
+    result.resize(attlen);
+    check(get_att(ncid, varid, attname.c_str(), result.data()), ec);
+    return result;
+}
+
+// Get attribute array with variable-length string type (`NC_STRING`).
 
 template <class Vector>
 typename std::enable_if_t<std::is_same_v<typename Vector::value_type, std::string>, Vector>
-get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = nullptr)
+get_att_array(int ncid, int varid, const std::string& attname, std::error_code *ec = nullptr)
 {
-    Vector<std::string> result;
-
+    Vector result;
     std::size_t attlen = inq_attlen(ncid, varid, attname, ec);
     if (attlen == 0)
         return result;
     
     std::vector<char *> pv(attlen, nullptr);
-    if (check(nc_get_att_string(ncid, varid, attname.c_str(), pv.data()), ec))
+    check(nc_get_att_string(ncid, varid, attname.c_str(), pv.data()), ec);
+    if (ec && ec->value())
         return result;
 
     result.reserve(attlen);
@@ -388,13 +405,13 @@ get_att(int ncid, int varid, const std::string& attname, std::error_code *ec = n
     return result;
 }
 
-// libdispatch get_var wrapper for arithmetic types. Returns Vector.
+// Get variable with arithmetic type as array.
 
-template <class Vector>
-typename std::enable_if<std::is_arithmetic<typename Vector::value_type>::value, Vector>::type
+template <class Container>
+typename std::enable_if_t<std::is_arithmetic_v<typename Container::value_type>, Container>
 get_var(int ncid, int varid, std::error_code *ec = nullptr)
 {
-    Vector result;
+    Container result;
     auto dimids = inq_vardimid(ncid, varid, ec);
     if (dimids.size() == 0)
         return result;
