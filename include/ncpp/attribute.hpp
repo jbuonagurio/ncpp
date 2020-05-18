@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,14 +11,16 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
+#include <ncpp/functions/variable.hpp>
+#include <ncpp/functions/attribute.hpp>
 #include <ncpp/check.hpp>
 #include <ncpp/types.hpp>
 #include <ncpp/variant.hpp>
-#include <ncpp/detail/dispatch.hpp>
 
-#include <netcdf.h>
 #include <array>
 #include <memory>
 #include <ostream>
@@ -66,45 +68,45 @@ public:
     /// Get the attribute length.
     std::size_t length() const
     {
-        return ncpp::inq_attlen(ncid_, varid_, attname_);
+        return inq_attlen(ncid_, varid_, attname_);
     }
 
     /// Get the netCDF type ID for the attribute.
     int netcdf_type() const
     {
-        return ncpp::inq_atttype(ncid_, varid_, attname_);
+        return inq_atttype(ncid_, varid_, attname_);
     }
     
     /// Get scalar attribute with arithmetic type.
-    template <typename T>
+    template <class T>
     typename std::enable_if<std::is_arithmetic<T>::value, T>::type value() const
     {
-        return ncpp::get_att<T>(ncid_, varid_, attname_);
+        return get_att<T>(ncid_, varid_, attname_);
     }
 
     /// Get scalar attribute with fixed-length string type (`NC_CHAR`).
-    template <typename T>
+    template <class T>
     typename std::enable_if<std::is_same<T, std::string>::value, std::string>::type value() const
     {
-        return ncpp::get_att<T>(ncid_, varid_, attname_);
+        return get_att<T>(ncid_, varid_, attname_);
     }
 
     /// Get attribute array with arithmetic type.
-    template <typename T, typename A = std::allocator<T>>
+    template <class T, class A = std::allocator<T>>
     typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
     {
-        return ncpp::get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
+        return get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
     }
 
     /// Get attribute array with variable-length string type (`NC_STRING`).
-    template <typename T, typename A = std::allocator<T>>
+    template <class T, class A = std::allocator<T>>
     typename std::enable_if<std::is_same<T, std::string>::value, std::vector<std::string, A>>::type values() const
     {
-        return ncpp::get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
+        return get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
     }
 
     /// Get attribute array with variant type.
-    ncpp::variant value() const
+    variant value() const
     {
         switch (this->netcdf_type()) {
         case NC_BYTE:   return this->values<signed char>();
@@ -120,7 +122,7 @@ public:
         case NC_UINT64: return this->values<unsigned long long>();
         case NC_STRING: return this->values<std::string>();
         default:
-            ncpp::detail::throw_error(ncpp::error::invalid_data_type);
+            detail::throw_error(error::invalid_data_type);
             return {};
         }
     }

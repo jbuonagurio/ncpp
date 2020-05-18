@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,8 +11,11 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
+#include <ncpp/functions/dataset.hpp>
 #include <ncpp/file.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/variables.hpp>
@@ -27,18 +30,18 @@ private:
     int ncid_;
 
 public:
-    explicit dataset(const ncpp::file& file)
+    explicit dataset(const file& file)
         : dims(ncid_), vars(ncid_), atts(ncid_), ncid_(file.ncid())
     {}
 
     /// Dimensions associated with the netCDF dataset.
-    ncpp::dimensions_type dims;
+    dimensions_type dims;
 
     /// Variables associated with the netCDF dataset.
-    ncpp::variables_type vars;
+    variables_type vars;
     
     /// Global attributes associated with the netCDF dataset.
-    ncpp::attributes_type atts;
+    attributes_type atts;
 };
 
 } // namespace ncpp

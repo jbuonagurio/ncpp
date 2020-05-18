@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,11 +11,15 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
+#include <ncpp/functions/dataset.hpp>
+#include <ncpp/functions/dimension.hpp>
+#include <ncpp/functions/variable.hpp>
 #include <ncpp/check.hpp>
 
-#include <netcdf.h>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -77,29 +81,25 @@ public:
     /// Get the dimension name.
     std::string name() const
     {
-        char dimname[NC_MAX_NAME + 1];
-        ncpp::check(nc_inq_dimname(ncid_, dimid_, dimname));
-        return std::string(dimname);
+        return inq_dimname(ncid_, dimid_);
+    }
+
+    /// Get the dimension ID.
+    int dimid() const
+    {
+        return dimid_;
     }
 
     /// Get the dimension length.
     std::size_t length() const
     {
-        std::size_t dimlen;
-        ncpp::check(nc_inq_dimlen(ncid_, dimid_, &dimlen));
-        return dimlen;
+        return inq_dimlen(ncid_, dimid_);
     }
     
     /// Returns true if the dimension is unlimited.
     bool is_unlimited() const
     {
-        std::vector<int> unlim;
-        int nunlim;
-        ncpp::check(nc_inq_unlimdims(ncid_, &nunlim, nullptr));
-        if (nunlim <= 0)
-            return false;
-        unlim.resize(nunlim);
-        ncpp::check(nc_inq_unlimdims(ncid_, &nunlim, unlim.data()));
+        std::vector<int> unlim = inq_unlimdims(ncid_);
         auto it = std::find(unlim.begin(), unlim.end(), dimid_);
         return (it != unlim.end());
     }

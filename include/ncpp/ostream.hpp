@@ -11,6 +11,8 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
 #include <ncpp/dataset.hpp>
@@ -18,7 +20,6 @@
 #include <ncpp/variables.hpp>
 #include <ncpp/attributes.hpp>
 
-#include <netcdf.h>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -52,7 +53,7 @@ inline std::string netcdf_type_name(int id)
 }
 
 /// Streaming operator for variant types.
-inline std::ostream& operator<<(std::ostream& os, const ncpp::variant& v)
+inline std::ostream& operator<<(std::ostream& os, const variant& v)
 {
     std::visit([&os](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
@@ -81,7 +82,7 @@ inline std::ostream& operator<<(std::ostream& os, const ncpp::variant& v)
 }
 
 /// Streaming operator for dimension name and size in CDL format.
-inline std::ostream& operator<<(std::ostream& os, const ncpp::dimension& rhs)
+inline std::ostream& operator<<(std::ostream& os, const dimension& rhs)
 {
     if (rhs.is_unlimited())
         os << rhs.name() << " = UNLIMITED ; // (" << rhs.length() << " currently)";
@@ -91,7 +92,7 @@ inline std::ostream& operator<<(std::ostream& os, const ncpp::dimension& rhs)
 }
 
 /// Streaming operator for variable type, name and dimensions in CDL format.
-inline std::ostream& operator<<(std::ostream& os, const ncpp::variable& rhs)
+inline std::ostream& operator<<(std::ostream& os, const variable& rhs)
 {
     os << netcdf_type_name(rhs.netcdf_type()) << " ";
     os << rhs.name() << "(";
@@ -105,15 +106,15 @@ inline std::ostream& operator<<(std::ostream& os, const ncpp::variable& rhs)
 }
 
 /// Streaming operator for attribute name and value in CDL format.
-inline std::ostream& operator<<(std::ostream& os, const ncpp::attribute& rhs)
+inline std::ostream& operator<<(std::ostream& os, const attribute& rhs)
 {
-    ncpp::variant v = rhs.value();
+    variant v = rhs.value();
     os << rhs.name() << " = " << v << " ;";
     return os;
 }
 
 /// Streaming operator for dataset headers in CDL format.
-inline std::ostream& operator<<(std::ostream& os, const ncpp::dataset& rhs)
+inline std::ostream& operator<<(std::ostream& os, const dataset& rhs)
 {
     os << "dimensions:\n";
     for (const auto& dim : rhs.dims) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,12 +11,15 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
+#include <ncpp/functions/variable.hpp>
+#include <ncpp/functions/attribute.hpp>
 #include <ncpp/attribute.hpp>
 #include <ncpp/check.hpp>
 
-#include <netcdf.h>
 #include <set>
 #include <string>
 
@@ -29,7 +32,7 @@ class variable;
 class attributes_type
 {
 private:
-    using storage_type = std::set<ncpp::attribute>;
+    using storage_type = std::set<attribute>;
     using value_type = typename storage_type::value_type;
 
     int ncid_;
@@ -39,13 +42,10 @@ private:
     attributes_type(int ncid, int varid = NC_GLOBAL)
         : ncid_(ncid), varid_(varid)
     {
-        int natts;
-        ncpp::check(nc_inq_varnatts(ncid_, varid_, &natts));
-        
+        int natts = inq_varnatts(ncid_, varid_);
         for (int attnum = 0; attnum < natts; ++attnum) {
-            char attname[NC_MAX_NAME + 1];
-            ncpp::check(nc_inq_attname(ncid_, varid_, attnum, attname));
-            atts_.emplace(ncpp::attribute(ncid_, varid_, attname));
+            std::string attname = inq_attname(ncid_, varid_, attnum);
+            atts_.emplace(attribute(ncid_, varid_, attname));
         }
     }
 
@@ -73,21 +73,34 @@ public:
         return atts_.size();
     }
 
+    bool empty() const noexcept {
+        return atts_.empty();
+    }
+
     /// Get an attribute by name.
     const_reference operator[](const std::string& name) const
     {
-        const auto it = atts_.find(ncpp::attribute(ncid_, varid_, name));
+        const auto it = atts_.find(attribute(ncid_, varid_, name));
         if (it == atts_.end())
-            ncpp::detail::throw_error(ncpp::error::attribute_not_found);
+            detail::throw_error(error::attribute_not_found);
 
         return *it;
+    }
+
+    /// Get an attribute by index.
+    const_reference at(std::size_t n) const
+    {
+        if (n >= atts_.size())
+            detail::throw_error(error::attribute_not_found);
+
+        return *std::next(atts_.begin(), n);
     }
 
     /// Determine if an attribute is present.
     bool contains(const std::string& name) const noexcept
     {
-        std::size_t count = atts_.count(ncpp::attribute(ncid_, varid_, name));
-        return (count > 0) ? true : false;
+        const auto it = std::find(atts_.begin(), atts_.end(), attribute(ncid_, varid_, name));
+        return (it != atts_.end());
     }
 
     friend class dataset;

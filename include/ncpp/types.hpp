@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,18 +11,34 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+#include <netcdf_meta.h>
+
 #include <ncpp/config.hpp>
 
-#include <netcdf.h>
+#include <cstddef>
 #include <chrono>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 namespace ncpp {
 
+using index_type = std::vector<std::size_t>;
+using stride_type = std::vector<std::ptrdiff_t>;
+
+enum class var_endian_type {
+    native = NC_ENDIAN_NATIVE,
+    little = NC_ENDIAN_LITTLE,
+    big    = NC_ENDIAN_BIG
+};
+
 enum class var_storage_type {
     contiguous = NC_CONTIGUOUS,
-    chunked    = NC_CHUNKED
+    chunked    = NC_CHUNKED,
+#if NC_VERSION_MAJOR * 100 + NC_VERSION_MINOR * 10 + NC_VERSION_PATCH >= 474
+    compact    = NC_COMPACT
+#endif
 };
 
 enum class var_filter_type : unsigned int {
@@ -124,7 +140,7 @@ struct netcdf_type_to_type<NC_STRING> {
 
 namespace impl {
 
-template <typename T> struct type_to_netcdf_type;
+template <class T> struct type_to_netcdf_type;
 
 template<>
 struct type_to_netcdf_type<char> {
@@ -181,7 +197,7 @@ struct type_to_netcdf_type<const char *> {
 
 } // namespace impl
 
-template<typename T>
+template<class T>
 using type_to_netcdf_type = impl::type_to_netcdf_type<std::decay_t<T>>;
 
 } // namespace ncpp

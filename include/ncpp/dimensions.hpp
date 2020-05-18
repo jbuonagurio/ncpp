@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,12 +11,15 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
+#include <ncpp/functions/dimension.hpp>
+#include <ncpp/functions/variable.hpp>
 #include <ncpp/dimension.hpp>
 #include <ncpp/check.hpp>
 
-#include <netcdf.h>
 #include <string>
 #include <vector>
 
@@ -29,7 +32,7 @@ class variable;
 class dimensions_type
 {
 private:
-    using storage_type = std::vector<ncpp::dimension>;
+    using storage_type = std::vector<dimension>;
     using value_type = typename storage_type::value_type;
 
     int ncid_;
@@ -37,39 +40,21 @@ private:
     storage_type dims_;
 
     explicit dimensions_type(int ncid)
-        : ncid_(ncid), varid_(-1)
+        : ncid_(ncid), varid_(NC_GLOBAL)
     {
-        std::vector<int> dimids;
-        int ndims, ndims1;
-
-        // Safely get dimids, in case dimensions are currently being added.
-        // Based on netCDF-C implementation (dumplib.c).
-        do {
-            ncpp::check(nc_inq_dimids(ncid_, &ndims, nullptr, 0));
-            dimids.resize(ndims + 1);
-            ncpp::check(nc_inq_dimids(ncid_, &ndims1, dimids.data(), 0));
-        } while (ndims != ndims1);
-        
-        dims_.reserve(ndims);
-        for (int i = 0; i < ndims; ++i) {
-            dims_.emplace_back(ncpp::dimension(ncid_, dimids.at(i)));
-        }
+        auto dimids = inq_dimids(ncid);
+        dims_.reserve(dimids.size());
+        for (const auto& dimid : dimids)
+            dims_.emplace_back(dimension(ncid_, dimid));
     }
 
     dimensions_type(int ncid, int varid)
         : ncid_(ncid), varid_(varid)
     {
-        std::vector<int> dimids;
-        int ndims;
-
-        ncpp::check(nc_inq_varndims(ncid_, varid_, &ndims));
-        dimids.resize(ndims);
-        ncpp::check(nc_inq_vardimid(ncid_, varid_, dimids.data()));
-
-        dims_.reserve(ndims);
-        for (int i = 0; i < ndims; ++i) {
-            dims_.emplace_back(ncpp::dimension(ncid_, dimids.at(i)));
-        }
+        auto dimids = inq_vardimid(ncid, varid);
+        dims_.reserve(dimids.size());
+        for (const auto& dimid : dimids)
+            dims_.emplace_back(dimension(ncid_, dimid));
     }
     
 public:
@@ -96,15 +81,20 @@ public:
         return dims_.size();
     }
 
+    bool empty() const noexcept {
+        return dims_.empty();
+    }
+
     /// Get a dimension from its name.
     const_reference operator[](const std::string& name) const
     {
-        int dimid;
-        ncpp::check(nc_inq_dimid(ncid_, name.c_str(), &dimid));
-
-        const auto it = std::find(dims_.begin(), dims_.end(), ncpp::dimension(ncid_, dimid));
+        auto dimid = inq_dimid(ncid_, name);
+        if (!dimid.has_value())
+            detail::throw_error(error::invalid_dimension);
+        
+        const auto it = std::find(dims_.begin(), dims_.end(), dimension(ncid_, dimid.value()));
         if (it == dims_.end())
-            ncpp::detail::throw_error(ncpp::error::invalid_dimension);
+            detail::throw_error(error::invalid_dimension);
 
         return *it;
     }
@@ -113,11 +103,23 @@ public:
     const_reference at(std::size_t n) const
     {
         if (n >= dims_.size())
-            ncpp::detail::throw_error(ncpp::error::invalid_dimension);
+            detail::throw_error(error::invalid_dimension);
 
         auto it = dims_.begin();
         std::advance(it, n);
         return *it;
+    }
+
+    /// Determine if a dimension is present.
+    bool contains(const std::string& name) const noexcept
+    {
+        std::error_code ec;
+        auto dimid = inq_dimid(ncid_, name, ec);
+        if (ec.value() || !dimid.has_value())
+            return false;
+        
+        const auto it = std::find(dims_.begin(), dims_.end(), dimension(ncid_, dimid.value()));
+        return (it != dims_.end());
     }
 
     friend class dataset;

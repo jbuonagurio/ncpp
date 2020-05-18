@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,12 +11,13 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
 #include <ncpp/variable.hpp>
 #include <ncpp/check.hpp>
 
-#include <netcdf.h>
 #include <iterator>
 #include <set>
 #include <string>
@@ -30,29 +31,18 @@ class dataset;
 class variables_type
 {
 private:
-    using storage_type = std::set<ncpp::variable>;
+    using storage_type = std::set<variable>;
     using value_type = typename storage_type::value_type;
 
     int ncid_;
-    storage_type _vars;
+    storage_type vars_;
 
     explicit variables_type(int ncid)
         : ncid_(ncid)
     {
-        std::vector<int> varids;
-        int nvars, nvars1;
-
-        // Safely get varids, in case variables are currently being added.
-        // Based on netCDF-C implementation (dumplib.c).
-        do {
-            ncpp::check(nc_inq_varids(ncid_, &nvars, nullptr));
-            varids.resize(nvars + 1);
-            ncpp::check(nc_inq_varids(ncid_, &nvars1, varids.data()));
-        } while (nvars != nvars1);
-
-        for (int i = 0; i < nvars; ++i) {
-            _vars.emplace(ncpp::variable(ncid_, varids.at(i)));
-        }
+        auto varids = inq_varids(ncid);
+        for (const auto& varid : varids)
+            vars_.emplace(variable(ncid_, varid));
     }
 
 public:
@@ -60,34 +50,39 @@ public:
     using const_reference = storage_type::const_reference;
 
     const_iterator begin() const noexcept {
-        return _vars.begin();
+        return vars_.begin();
     }
 
     const_iterator end() const noexcept {
-        return _vars.end();
+        return vars_.end();
     }
 
     const_reference front() const noexcept {
-        return *_vars.cbegin();
+        return *vars_.cbegin();
     }
 
     const_reference back() const noexcept {
-        return *_vars.cend();
+        return *vars_.cend();
     }
 
     std::size_t size() const noexcept {
-        return _vars.size();
+        return vars_.size();
+    }
+
+    bool empty() const noexcept {
+        return vars_.empty();
     }
 
     /// Get a variable by name.
     const_reference operator[](const std::string& name) const
     {
-        int varid;
-        ncpp::check(nc_inq_varid(ncid_, name.c_str(), &varid));
+        auto varid = inq_varid(ncid_, name);
+        if (!varid.has_value())
+            detail::throw_error(error::variable_not_found);
         
-        const auto it = _vars.find(ncpp::variable(ncid_, varid));
-        if (it == _vars.end())
-            ncpp::detail::throw_error(ncpp::error::variable_not_found);
+        const auto it = vars_.find(variable(ncid_, varid.value()));
+        if (it == vars_.end())
+            detail::throw_error(error::variable_not_found);
         
         return *it;
     }
@@ -95,21 +90,22 @@ public:
     /// Get a variable by index.
     const_reference at(std::size_t n) const
     {
-        if (n >= _vars.size())
-            ncpp::detail::throw_error(ncpp::error::variable_not_found);
+        if (n >= vars_.size())
+            detail::throw_error(error::variable_not_found);
 
-        return *std::next(_vars.begin(), n);
+        return *std::next(vars_.begin(), n);
     }
 
     /// Determine if a variable is present.
     bool contains(const std::string& name) const noexcept
     {
-        int varid;
-        int rc = nc_inq_varid(ncid_, name.c_str(), &varid);
-        if (rc == NC_NOERR && _vars.count(ncpp::variable(ncid_, varid)) > 0)
-            return true;
-        else
+        std::error_code ec;
+        auto varid = inq_varid(ncid_, name, ec);
+        if (ec.value() || !varid.has_value())
             return false;
+        
+        const auto it = std::find(vars_.begin(), vars_.end(), variable(ncid_, varid.value()));
+        return (it != vars_.end());
     }
 
     friend class dataset;

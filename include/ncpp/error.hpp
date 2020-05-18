@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,9 +11,10 @@
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
-#include <netcdf.h>
 #include <string>
 #include <system_error>
 
@@ -214,7 +215,7 @@ inline void throw_error(const std::error_code& err)
 {
     if (err) {
         std::system_error e(err);
-        ncpp::detail::throw_exception(e);
+        throw_exception(e);
     }
 }
 
@@ -222,25 +223,25 @@ inline void throw_error(const std::error_code& err, const char* location)
 {
     if (err) {
         std::system_error e(err, location);
-        ncpp::detail::throw_exception(e);
+        throw_exception(e);
     }
 }
 
 inline void throw_error(const int err)
 {
     if (err) {
-        std::error_code ec = ncpp::error::make_error_code(err);
+        std::error_code ec = error::make_error_code(err);
         std::system_error e(ec);
-        ncpp::detail::throw_exception(e);
+        throw_exception(e);
     }
 }
 
 inline void throw_error(const int err, const char* location)
 {
     if (err) {
-        std::error_code ec = ncpp::error::make_error_code(err);
+        std::error_code ec = error::make_error_code(err);
         std::system_error e(ec, location);
-        ncpp::detail::throw_exception(e);
+        throw_exception(e);
     }
 }
 

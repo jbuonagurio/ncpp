@@ -4,34 +4,28 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 
-#ifndef NCPP_CHECK_HPP
-#define NCPP_CHECK_HPP
+#ifndef NCPP_FUNCTIONS_VERSION_HPP
+#define NCPP_FUNCTIONS_VERSION_HPP
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
+#include <netcdf.h>
+
 #include <ncpp/config.hpp>
 
-#include <ncpp/error.hpp>
+#include <string>
 
 namespace ncpp {
 
-/// Utility function to handle netCDF error codes.
-inline void check(int rc, std::error_code *ec = nullptr)
+inline std::string inq_libvers()
 {
-    if (rc != NC_NOERR) {
-        if (ec)
-            *ec = error::make_error_code(rc);
-        else
-            detail::throw_error(rc);
-    }
-    else {
-        if (ec)
-            ec->clear();
-    }
+    return "netCDF " + std::string(nc_inq_libvers());
 }
 
 } // namespace ncpp
 
-#endif // NCPP_CHECK_HPP
+#endif // NCPP_FUNCTIONS_VERSION_HPP
+
+
