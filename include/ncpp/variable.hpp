@@ -63,9 +63,11 @@ class variables_type;
 /// netCDF variable type.
 class variable
 {
-private:
+    friend class variables_type;
+
+public:
     variable(int ncid, int varid) :
-        dims(ncid_, varid_), atts(ncid_, varid_), ncid_(ncid), varid_(varid)
+        dims(ncid, varid), atts(ncid, varid), ncid_(ncid), varid_(varid)
     {
         start_.resize(dims.size(), 0);
         shape_.resize(dims.size(), 0);
@@ -74,13 +76,6 @@ private:
             [](const auto& dim) { return dim.length(); });
     }
 
-    int ncid_;
-    int varid_;
-    std::vector<std::size_t> start_;
-    std::vector<std::size_t> shape_;
-    std::vector<std::ptrdiff_t> stride_;
-
-public:
     /// Dimensions associated with the variable.
     dimensions_type dims;
 
@@ -105,20 +100,17 @@ public:
     }
 
     /// Get the variable name.
-    std::string name() const
-    {
+    std::string name() const {
         return inq_varname(ncid_, varid_);
     }
 
     // Get the variable ID.
-    int varid() const
-    {
+    int varid() const {
         return varid_;
     }
 
     /// Get the netCDF data type ID for the variable.
-    int netcdf_type() const
-    {
+    int netcdf_type() const {
         return inq_vartype(ncid_, varid_);
     }
 
@@ -138,10 +130,8 @@ public:
     }
 
     /// Get the total number of elements in the data array.
-    std::size_t size() const
-    {
-        return std::accumulate(shape_.begin(), shape_.end(), 1ull,
-            std::multiplies<std::size_t>());
+    std::size_t size() const {
+        return detail::compute_size(shape_);
     }
 
     /// Returns true if the variable is a coordinate variable.
@@ -160,20 +150,17 @@ public:
     }
 
     template <class T>
-    std::optional<T> fill_value() const
-    {
+    std::optional<T> fill_value() const {
         return inq_var_fill(ncid_, varid_);
     }
 
     /// Returns the variable storage type.
-    var_storage_type storage_type() const
-    {
+    var_storage_type storage_type() const {
         return inq_var_storage(ncid_, varid_).value();
     }
 
     /// Returns the chunk size for each dimension.
-    std::vector<std::size_t> chunk_sizes() const
-    {
+    std::vector<std::size_t> chunk_sizes() const {
         return inq_var_chunksizes(ncid_, varid_);
     }
 
@@ -181,15 +168,13 @@ public:
 
     /// Returns the HDF5 filter ID for the variable.
     /// See also: https://portal.hdfgroup.org/display/support/Filters
-    unsigned int filter_type() const
-    {
+    unsigned int filter_type() const {
         return inq_var_filter_id(ncid_, varid_).value();
     }
 
     /// Returns the HDF5 filter name for the variable.
     /// See also: https://portal.hdfgroup.org/display/support/Filters
-    std::string filter_name() const
-    {
+    std::string filter_name() const {
         return inq_var_filter_name(ncid_, varid_);
     }
 
@@ -239,28 +224,24 @@ public:
             reversed = true;
         }
         
-        if (s.min_coordinate > s.max_coordinate) {
+        if (s.min_coordinate > s.max_coordinate)
             std::swap(s.min_coordinate, s.max_coordinate);
-        }
         
         // Set the start and shape indexes.
         auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_coordinate);
         auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
         
-        if (reversed)
-            v.start_.at(idx) = static_cast<std::size_t>(std::distance(upper, coords.end()));
-        else
-            v.start_.at(idx) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
+        v.start_.at(idx) = reversed ? static_cast<std::size_t>(std::distance(upper, coords.end()))
+                                    : static_cast<std::size_t>(std::distance(coords.begin(), lower));
         
         v.stride_.at(idx) = s.stride;
         v.shape_.at(idx) = static_cast<std::size_t>(std::distance(lower, upper)) / std::abs(s.stride);
-        
         return v;
     }
     
     /// Get the coordinates for all dimensions as a vector of tuples.
     template <typename... Ts>
-    auto coordinates() const
+    std::vector<std::tuple<Ts...>> coordinates() const
     {
         // Make sure we have the correct number of columns.
         if (sizeof...(Ts) != dims.size())
@@ -275,10 +256,7 @@ public:
         }, columns);
         
         // Create the cartesian product for the hyperslab.
-        std::vector<std::tuple<Ts...>> result;
-        result = detail::tuple_cartesian_product(columns);
-        
-        return result;
+        return detail::tuple_cartesian_product(columns);
     }
     
     /// Get the coordinates for one dimension by position as a vector.
@@ -367,7 +345,7 @@ public:
         std::copy_n(shape_.begin(), N, extents.begin());
         boost::multi_array<T, N, A> result(extents, boost::fortran_storage_order{});
 
-        check(iimpl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data()));
+        check(impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data()));
         return result;
     }
 
@@ -375,121 +353,23 @@ public:
     template <class T, class A = std::allocator<T>>
     typename std::enable_if<std::is_arithmetic<T>::value, matrix_type<T, A>>::type matrix() const
     {
-        auto rank = std::count_if(shape_.begin(), shape_.end(), [](auto x) { return x > 1; });
-        if (rank > 2)
-            detail::throw_error(error::invalid_coordinates);
+        auto extents = detail::squeeze(shape_);
+        if (extents.size() != 2)
+            detail::throw_error(error::invalid_coordinates); // NC_EINVALCOORDS
         
-        std::array<std::size_t, 2> extents;
-        std::copy_if(shape_.begin(), shape_.end(), extents.begin(), [](auto x) { return x > 1; });
         matrix_type<T, A> result(extents[0], extents[1]);
-        
-        check(iimpl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data().begin()));
+        check(impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data().begin()));
         return result;
     }
 
 #endif // NCPP_USE_BOOST
 
-    /// Bidirectional iterator for individual values.
-    template <class T>
-    class value_iterator
-    {
-    public:
-        using iterator_category = std::bidirectional_iterator_tag;
-        using value_type = T;
-        using difference_type = std::ptrdiff_t;
-        using pointer = T*;
-        using reference = T&;
-        
-        value_iterator(variable& v, std::ptrdiff_t position = 0)
-            : var_(v), position_(position) {}
-
-        value_iterator(const value_iterator& rhs) = default;
-        value_iterator(value_iterator&& rhs) = default;
-        value_iterator& operator=(const value_iterator& rhs) = default;
-        value_iterator& operator=(value_iterator&& rhs) = default;
-
-        bool operator==(const value_iterator& rhs) const {
-            return (var_ == rhs.var_ && position_ == rhs.position_);
-        }
-
-        bool operator!=(const value_iterator& rhs) const { 
-            return !(*this == rhs);
-        }
-
-        /// Calculate the dimension indices from the current iterator position.
-        index_type index() const {
-            index_type idx = var_.start_;
-            std::lldiv_t q { position_ , 0LL };
-            for (std::ptrdiff_t i = idx.size() - 1;  i >= 0; --i) {
-                q = std::div(q.quot, static_cast<std::ptrdiff_t>(var_.shape_[i]));
-                idx[i] = var_.start_[i] + q.rem * var_.stride_[i];
-            }
-            return idx;
-        }
-        
-        /// Prefix increment operator.
-        value_iterator operator++() {
-            ++position_;
-            return *this;
-        }
-
-        /// Postfix increment operator.
-        value_iterator operator++(int) {
-            iterator it = *this;
-            ++position_;
-            return it;
-        }
-
-        /// Prefix decrement operator.
-        value_iterator operator--() {
-            --position_;
-            return *this;
-        }
-
-        /// Postfix decrement operator.
-        value_iterator operator--(int) {
-            iterator it = *this;
-            ++position_;
-            return it;
-        }
-
-        T operator*() const {
-            auto start = index();
-            return get_var1<T>(var_.ncid_, var_.varid_, start);
-        }
-
-    private:
-        variable& var_;
-        std::ptrdiff_t position_;
-    };
-
-    template <class T>
-    using iterator = value_iterator<T>;
-
-    template <class T>
-    using reverse_iterator = std::reverse_iterator<iterator<T>>;
-
-    template <class T>
-    iterator<T> begin() {
-        return iterator<T>(*this);
-    }
-
-    template <class T>
-    iterator<T> end() {
-        return iterator<T>(*this, this->size());
-    }
-    
-    template <class T>
-    reverse_iterator<T> rbegin() {
-        return reverse_iterator<T>(end());
-    }
-    
-    template <class T>
-    reverse_iterator<T> rend() {
-        return reverse_iterator<T>(begin());
-    }
-
-    friend class variables_type;
+private:
+    int ncid_;
+    int varid_;
+    std::vector<std::size_t> start_;
+    std::vector<std::size_t> shape_;
+    std::vector<std::ptrdiff_t> stride_;
 };
 
 } // namespace ncpp

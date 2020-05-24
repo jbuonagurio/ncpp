@@ -27,14 +27,7 @@ class dataset;
 /// netCDF file type.
 class file
 {
-private:
-    int ncid_;
-    std::filesystem::path _path;
-
-    /// Get the netCDF ID.
-    int ncid() const {
-        return ncid_;
-    }
+    friend class dataset;
 
 public:
     using openmode = int;
@@ -69,12 +62,17 @@ public:
         default:
             break;
         }
-
+        
         check(rc);
     }
 
     ~file() {
         nc_close(ncid_);
+    }
+    
+    /// Get the netCDF ID.
+    int ncid() const {
+        return ncid_;
     }
 
     /// Returns the path to the open file.
@@ -116,7 +114,9 @@ public:
         return value;
     }
 
-    friend class dataset;
+private:
+    int ncid_;
+    std::filesystem::path _path;
 };
 
 } // namespace ncpp

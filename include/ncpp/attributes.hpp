@@ -31,27 +31,24 @@ class variable;
 /// netCDF attribute set.
 class attributes_type
 {
-private:
+    friend class dataset;
+    friend class variable;
+
+public:
     using storage_type = std::set<attribute>;
     using value_type = typename storage_type::value_type;
-
-    int ncid_;
-    int varid_;
-    storage_type atts_;
+    using const_iterator = storage_type::const_iterator;
+    using const_reference = storage_type::const_reference;
 
     attributes_type(int ncid, int varid = NC_GLOBAL)
         : ncid_(ncid), varid_(varid)
     {
-        int natts = inq_varnatts(ncid_, varid_);
+        int natts = inq_varnatts(ncid, varid);
         for (int attnum = 0; attnum < natts; ++attnum) {
-            std::string attname = inq_attname(ncid_, varid_, attnum);
-            atts_.emplace(attribute(ncid_, varid_, attname));
+            std::string attname = inq_attname(ncid, varid, attnum);
+            atts_.emplace(attribute(ncid, varid, attname));
         }
     }
-
-public:
-    using const_iterator = storage_type::const_iterator;
-    using const_reference = storage_type::const_reference;
     
     const_iterator begin() const noexcept {
         return atts_.begin();
@@ -103,8 +100,10 @@ public:
         return (it != atts_.end());
     }
 
-    friend class dataset;
-    friend class variable;
+private:
+    int ncid_;
+    int varid_;
+    storage_type atts_;
 };
 
 } // namespace ncpp

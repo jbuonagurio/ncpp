@@ -30,8 +30,12 @@ class dimensions_type;
 class variable;
 
 /// netCDF dimension type.
-class dimension {
-private:
+class dimension
+{
+    friend class dimensions_type;
+    friend class variable;
+
+public:
     dimension(int ncid, int dimid)
         : ncid_(ncid), dimid_(dimid), cvarid_(-1)
     {
@@ -41,9 +45,9 @@ private:
         int cvarid, cvartype, cvarndims;
         int cvardimids[2];
 
-        if ((nc_inq_varid(ncid_, this->name().c_str(), &cvarid) != NC_NOERR)||
-            (nc_inq_vartype(ncid_, cvarid, &cvartype) != NC_NOERR) ||
-            (nc_inq_varndims(ncid_, cvarid, &cvarndims) != NC_NOERR))
+        if ((nc_inq_varid(ncid, this->name().c_str(), &cvarid) != NC_NOERR)||
+            (nc_inq_vartype(ncid, cvarid, &cvartype) != NC_NOERR) ||
+            (nc_inq_varndims(ncid, cvarid, &cvarndims) != NC_NOERR))
             return;
         
         // Ensure the variable is one-dimensional; allow two dimensions for classic strings.
@@ -52,20 +56,15 @@ private:
             return;
 
         // Ensure the variable is indexed by this dimension.
-        if (nc_inq_vardimid(ncid_, cvarid, &cvardimids[0]) != NC_NOERR)
+        if (nc_inq_vardimid(ncid, cvarid, &cvardimids[0]) != NC_NOERR)
             return;
         
-        if (cvardimids[0] != dimid_)
+        if (cvardimids[0] != dimid)
             return;
         
         cvarid_ = cvarid;
     }
 
-    int ncid_;
-    int dimid_;
-    int cvarid_;
-
-public:
     bool operator<(const dimension& rhs) const {
         return (dimid_ < rhs.dimid_);
     }
@@ -104,8 +103,10 @@ public:
         return (it != unlim.end());
     }
 
-    friend class dimensions_type;
-    friend class variable;
+private:
+    int ncid_;
+    int dimid_;
+    int cvarid_;
 };
 
 } // namespace ncpp

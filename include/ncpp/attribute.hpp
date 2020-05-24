@@ -36,15 +36,12 @@ class attributes_type;
 /// netCDF attribute type.
 class attribute
 {
-private:
-    attribute(int ncid, int varid, const std::string& attname)
-        : ncid_(ncid), varid_(varid), attname_(attname) {}
-    
-    int ncid_;
-    int varid_;
-    std::string attname_;
+    friend class attributes_type;
 
 public:
+    attribute(int ncid, int varid, const std::string& attname)
+        : ncid_(ncid), varid_(varid), attname_(attname) {}
+
     bool operator<(const attribute& rhs) const {
         return std::tie(varid_, attname_) <
                std::tie(rhs.varid_, rhs.attname_);
@@ -127,7 +124,10 @@ public:
         }
     }
 
-    friend class attributes_type;
+private:    
+    int ncid_;
+    int varid_;
+    std::string attname_;
 };
 
 } // namespace ncpp

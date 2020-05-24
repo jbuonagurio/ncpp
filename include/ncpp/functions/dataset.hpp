@@ -17,6 +17,7 @@
 
 #include <ncpp/check.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <string>
 #include <system_error>
@@ -31,6 +32,21 @@ inline int inq_format(int ncid, std::error_code *ec = nullptr)
     int flags = 0;
     check(nc_inq_format(ncid, &flags), ec);
     return flags;
+}
+
+inline std::size_t inq_type_size(int ncid, int nctype, std::error_code *ec = nullptr)
+{
+    std::size_t size = 0;
+    check(nc_inq_type(ncid, nctype, nullptr, &size));
+    return size;
+}
+
+inline std::string inq_type_name(int ncid, int nctype, std::error_code *ec = nullptr)
+{
+    char name[NC_MAX_NAME + 1];
+    std::fill(std::begin(name), std::end(name), '\0');
+    check(nc_inq_type(ncid, nctype, name, nullptr), ec);
+    return (ec && ec->value()) ? std::string() : std::string(name);
 }
 
 // Get the dimension IDs associated with a dataset or group.
@@ -94,6 +110,18 @@ inline int inq_format(int ncid, std::error_code& ec) noexcept
     { return impl::inq_format(ncid, &ec); }
 inline int inq_format(int ncid)
     { return impl::inq_format(ncid); }
+
+
+inline std::size_t inq_type_size(int ncid, int nctype, std::error_code &ec) noexcept
+    { return impl::inq_type_size(ncid, nctype, &ec); }
+inline std::size_t inq_type_size(int ncid, int nctype)
+    { return impl::inq_type_size(ncid, nctype); }
+
+
+inline std::string inq_type_name(int ncid, int nctype, std::error_code& ec)
+    { return impl::inq_type_name(ncid, nctype, &ec); }
+inline std::string inq_type_name(int ncid, int nctype)
+    { return impl::inq_type_name(ncid, nctype); }
 
 
 inline std::vector<int> inq_dimids(int ncid, std::error_code& ec)

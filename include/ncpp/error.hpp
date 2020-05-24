@@ -153,7 +153,8 @@ namespace ncpp {
 namespace error {
 namespace detail {
 
-class netcdf_category : public std::error_category {
+class netcdf_category : public std::error_category
+{
 public:
     virtual const char *name() const noexcept override final { return "netCDF"; }
 

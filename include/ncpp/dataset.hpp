@@ -25,13 +25,11 @@
 namespace ncpp {
 
 /// netCDF dataset type.
-class dataset {
-private:
-    int ncid_;
-
+class dataset
+{
 public:
     explicit dataset(const file& file)
-        : dims(ncid_), vars(ncid_), atts(ncid_), ncid_(file.ncid())
+        : dims(file.ncid_), vars(file.ncid_), atts(file.ncid_), ncid_(file.ncid_)
     {}
 
     /// Dimensions associated with the netCDF dataset.
@@ -42,6 +40,9 @@ public:
     
     /// Global attributes associated with the netCDF dataset.
     attributes_type atts;
+
+private:
+    int ncid_;
 };
 
 } // namespace ncpp

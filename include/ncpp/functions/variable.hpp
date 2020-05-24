@@ -56,8 +56,9 @@ inline std::optional<int> inq_varid(int ncid, const std::string& varname, std::e
 inline std::string inq_varname(int ncid, int varid, std::error_code *ec = nullptr)
 {
     char varname[NC_MAX_NAME + 1];
+    std::fill(std::begin(varname), std::end(varname), '\0');
     check(nc_inq_varname(ncid, varid, varname), ec);
-    return (ec && ec->value()) ? std::string() : varname;
+    return (ec && ec->value()) ? std::string() : std::string(varname);
 }
 
 // Get the netCDF type of a variable, or NC_NAT if undefined.
@@ -184,16 +185,31 @@ inline std::optional<var_storage_type> inq_var_storage(int ncid, int varid, std:
     return static_cast<var_storage_type>(storage);
 }
 
-// Get the chunksizes of a chunked variable.
+// Get the per-dimension chunksizes of a chunked variable.
 inline std::vector<std::size_t> inq_var_chunksizes(int ncid, int varid, std::error_code *ec = nullptr)
 {
     std::vector<std::size_t> chunksizes;
+    auto storage = inq_var_storage(ncid, varid, ec);
+    if (!storage.has_value() || storage.value() != var_storage_type::chunked || (ec && ec->value()))
+        return chunksizes;
+    
     int ndims = inq_varndims(ncid, varid, ec);
-    if ((ec && !ec->value()) || ndims > 0) {
-        chunksizes.resize(ndims, 0);
-        check(nc_inq_var_chunking(ncid, varid, nullptr, chunksizes.data()), ec);
-    }
+    if (ndims == 0 || (ec && ec->value()))
+        return chunksizes;
+    
+    chunksizes.resize(ndims, 0);
+    check(nc_inq_var_chunking(ncid, varid, nullptr, chunksizes.data()), ec);
     return chunksizes;
+}
+
+// Get the total chunksize of a chunked variable, or zero if undefined.
+inline std::size_t inq_var_chunksize(int ncid, int varid, std::error_code *ec = nullptr)
+{
+    std::vector<std::size_t> chunksizes = inq_var_chunksizes(ncid, varid, ec);
+    if ((ec && ec->value()) || chunksizes.empty())
+        return 0;
+
+    return std::accumulate(chunksizes.begin(), chunksizes.end(), std::size_t(1), std::multiplies<std::size_t>());
 }
 
 // Get the filter ID for a variable, or std::nullopt if undefined.
@@ -245,9 +261,9 @@ inline std::string inq_var_filter_name(int ncid, int varid, std::error_code *ec 
 }
 
 // Get the per-variable chunk cache settings from the HDF5 layer.
-inline var_chunk_cache get_var_chunk_cache(int ncid, int varid, std::error_code *ec = nullptr)
+inline chunk_cache get_var_chunk_cache(int ncid, int varid, std::error_code *ec = nullptr)
 {
-    var_chunk_cache result = { 0 };
+    chunk_cache result = { 0 };
     check(nc_get_var_chunk_cache(ncid, varid, &result.size, &result.nelems, &result.preemption), ec);
     return result;
 }
@@ -527,7 +543,7 @@ template <class Container>
 typename std::enable_if_t<std::is_arithmetic_v<typename Container::value_type>, Container>
 get_vars(int ncid, int varid,
          const index_type& start,
-         const index_type& shape,
+         const index_type& count,
          const stride_type& stride,
          std::error_code *ec = nullptr)
 {
@@ -537,7 +553,7 @@ get_vars(int ncid, int varid,
     if (ec && ec->value())
         return result;
 
-    if (ndims <= 0 || start.size() != ndims || shape.size() != ndims || stride.size() != ndims) {
+    if (ndims <= 0 || start.size() != ndims || count.size() != ndims || stride.size() != ndims) {
         check(NC_EINVALCOORDS, ec); // Index exceeds dimension bound
         return result;
     }
@@ -546,12 +562,17 @@ get_vars(int ncid, int varid,
     if (ec && ec->value())
         return result;
 
-    std::size_t n = std::accumulate(shape.begin(), shape.end(), 1ull,
+    std::size_t n = std::accumulate(count.begin(), count.end(), std::size_t(1),
         std::multiplies<std::size_t>());
     
-    if (n > 0 && n <= varlen) {
+    if (n > varlen) {
+        check(NC_EINVALCOORDS, ec); // Index exceeds dimension bound
+        return result;
+    }
+
+    if (n > 0) {
         result.resize(n);
-        check(detail::get_vars(ncid, varid, start.data(), shape.data(), stride.data(), result.data()), ec);
+        check(detail::get_vars(ncid, varid, start.data(), count.data(), stride.data(), result.data()), ec);
     }
 
     return result;
@@ -582,7 +603,7 @@ template <class Container>
 typename std::enable_if_t<std::is_same_v<typename Container::value_type, std::string>, Container>
 get_vars(int ncid, int varid,
          const index_type& start,
-         const index_type& shape,
+         const index_type& count,
          const stride_type& stride,
          std::error_code *ec = nullptr)
 {
@@ -592,7 +613,7 @@ get_vars(int ncid, int varid,
     if (ec && ec->value())
         return result;
 
-    if (ndims <= 0 || start.size() != ndims || shape.size() != ndims || stride.size() != ndims) {
+    if (ndims <= 0 || start.size() != ndims || count.size() != ndims || stride.size() != ndims) {
         check(NC_EINVALCOORDS, ec); // Index exceeds dimension bound
         return result;
     }
@@ -603,14 +624,14 @@ get_vars(int ncid, int varid,
 
     if (nct == NC_CHAR) {
         // For classic strings, the character position is the last dimension.
-        std::size_t vlen = std::accumulate(shape.begin(), std::prev(shape.end()), (std::size_t)1,
+        std::size_t vlen = std::accumulate(count.begin(), std::prev(count.end()), (std::size_t)1,
             std::multiplies<std::size_t>());
-        std::size_t slen = shape.back();
+        std::size_t slen = count.back();
 
         // Read the array into a buffer.
         std::string buffer;
         buffer.resize(vlen * slen);
-        check(nc_get_vars_text(ncid, varid, start.data(), shape.data(), stride.data(), &buffer[0]), ec);
+        check(nc_get_vars_text(ncid, varid, start.data(), count.data(), stride.data(), &buffer[0]), ec);
 
         // Iterate over the buffer and extract fixed-width strings.
         result.reserve(vlen);
@@ -621,11 +642,11 @@ get_vars(int ncid, int varid,
         }
     }
     else if (nct == NC_STRING) {
-        std::size_t n = std::accumulate(shape.begin(), shape.end(), (std::size_t)1,
+        std::size_t n = std::accumulate(count.begin(), count.end(), (std::size_t)1,
             std::multiplies<std::size_t>());
         std::vector<char *> pv(n, nullptr);
 
-        check(nc_get_vars_string(ncid, varid, start.data(), shape.data(), stride.data(), pv.data()), ec);
+        check(nc_get_vars_string(ncid, varid, start.data(), count.data(), stride.data(), pv.data()), ec);
         if (ec && ec->value())
             return result;
         
@@ -775,7 +796,7 @@ template <class Container>
 typename std::enable_if_t<ncpp::detail::is_chrono_time_point<typename Container::value_type>::value, Container>
 get_vars(int ncid, int varid,
          const index_type& start,
-         const index_type& shape,
+         const index_type& count,
          const stride_type& stride,
          std::error_code *ec = nullptr)
 {
@@ -786,7 +807,7 @@ get_vars(int ncid, int varid,
     if (ec && ec->value())
         return result;
     
-    auto offsets = get_vars<std::vector<double>>(ncid, varid, start, shape, stride, ec);
+    auto offsets = get_vars<std::vector<double>>(ncid, varid, start, count, stride, ec);
     if (ec && ec->value())
         return result;
     
@@ -826,7 +847,7 @@ get_var1(int ncid, int varid, const index_type& start, std::error_code *ec = nul
 template <class Container>
 Container get_var(int ncid, int varid, std::error_code *ec = nullptr)
 {   
-    index_type shape = get_varshape(ncid, varid, ec);
+    count_type shape = get_varshape(ncid, varid, ec);
     index_type start(shape.size(), 0);
     stride_type stride(shape.size(), 1);
     return get_vars<Container>(ncid, varid, start, shape, stride, ec);
@@ -909,6 +930,12 @@ inline std::vector<std::size_t> inq_var_chunksizes(int ncid, int varid)
     { return impl::inq_var_chunksizes(ncid, varid); }
 
 
+inline std::size_t inq_var_chunksize(int ncid, int varid, std::error_code& ec)
+    { return impl::inq_var_chunksize(ncid, varid, &ec); }
+inline std::size_t inq_var_chunksize(int ncid, int varid)
+    { return impl::inq_var_chunksize(ncid, varid); }
+
+
 inline std::optional<unsigned int> inq_var_filter_id(int ncid, int varid, std::error_code& ec) noexcept
     { return impl::inq_var_filter_id(ncid, varid, &ec); }
 inline std::optional<unsigned int> inq_var_filter_id(int ncid, int varid)
@@ -921,18 +948,18 @@ inline std::string inq_var_filter_name(int ncid, int varid)
     { return impl::inq_var_filter_name(ncid, varid); }
 
 
-inline var_chunk_cache get_var_chunk_cache(int ncid, int varid, std::error_code &ec)
+inline chunk_cache get_var_chunk_cache(int ncid, int varid, std::error_code &ec)
     { return impl::get_var_chunk_cache(ncid, varid, &ec); }
-inline var_chunk_cache get_var_chunk_cache(int ncid, int varid)
+inline chunk_cache get_var_chunk_cache(int ncid, int varid)
     { return impl::get_var_chunk_cache(ncid, varid); }
 
 
 template <class Container>
-Container get_vars(int ncid, int varid, const index_type& start, const index_type& shape, const stride_type& stride, std::error_code &ec)
-    { return impl::get_vars<Container>(ncid, varid, start, shape, stride, &ec); }
+Container get_vars(int ncid, int varid, const index_type& start, const index_type& count, const stride_type& stride, std::error_code &ec)
+    { return impl::get_vars<Container>(ncid, varid, start, count, stride, &ec); }
 template <class Container>
-Container get_vars(int ncid, int varid, const index_type& start, const index_type& shape, const stride_type& stride)
-    { return impl::get_vars<Container>(ncid, varid, start, shape, stride); }
+Container get_vars(int ncid, int varid, const index_type& start, const index_type& count, const stride_type& stride)
+    { return impl::get_vars<Container>(ncid, varid, start, count, stride); }
 
 
 template <class T>
@@ -954,5 +981,3 @@ Container get_var(int ncid, int varid)
 } // namespace ncpp
 
 #endif // NCPP_FUNCTIONS_VARIABLE_HPP
-
-

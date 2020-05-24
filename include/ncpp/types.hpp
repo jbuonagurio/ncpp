@@ -67,7 +67,7 @@ enum class var_filter_type : unsigned int {
     vbz        = 32020
 };
 
-struct var_chunk_cache {
+struct chunk_cache {
     std::size_t size;   // total size of the raw data chunk cache in bytes
     std::size_t nelems; // number of chunk slots in the raw data chunk cache hash table
     float preemption;   // premption value, between 0 and 1 (inclusive)

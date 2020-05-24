@@ -16,6 +16,7 @@
 #include <ncpp/config.hpp>
 #include <ncpp/check.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -39,8 +40,9 @@ inline std::optional<int> inq_dimid(int ncid, const std::string& dimname, std::e
 inline std::string inq_dimname(int ncid, int dimid, std::error_code *ec = nullptr)
 {
     char dimname[NC_MAX_NAME + 1];
+    std::fill(std::begin(dimname), std::end(dimname), '\0');
     check(nc_inq_dimname(ncid, dimid, dimname), ec);
-    return (ec && ec->value()) ? std::string() : dimname;
+    return (ec && ec->value()) ? std::string() : std::string(dimname);
 }
 
 // Get the length of a dimension.

@@ -21,11 +21,12 @@
 #include <ncpp/dimensions.hpp>
 #include <ncpp/variables.hpp>
 #include <ncpp/attributes.hpp>
+#include <ncpp/iterator.hpp>
 
 #include <ncpp/functions/attribute.hpp>
 #include <ncpp/functions/dataset.hpp>
 #include <ncpp/functions/dimension.hpp>
 #include <ncpp/functions/variable.hpp>
-#include <ncpp/functions/version.hpp>
+#include <ncpp/functions/global.hpp>
 
 #endif // NCPP_HPP 

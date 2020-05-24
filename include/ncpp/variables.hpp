@@ -30,24 +30,21 @@ class dataset;
 /// netCDF variable set.
 class variables_type
 {
-private:
+    friend class dataset;
+
+public:
     using storage_type = std::set<variable>;
     using value_type = typename storage_type::value_type;
-
-    int ncid_;
-    storage_type vars_;
+    using const_iterator = storage_type::const_iterator;
+    using const_reference = storage_type::const_reference;
 
     explicit variables_type(int ncid)
         : ncid_(ncid)
     {
         auto varids = inq_varids(ncid);
         for (const auto& varid : varids)
-            vars_.emplace(variable(ncid_, varid));
+            vars_.emplace(variable(ncid, varid));
     }
-
-public:
-    using const_iterator = storage_type::const_iterator;
-    using const_reference = storage_type::const_reference;
 
     const_iterator begin() const noexcept {
         return vars_.begin();
@@ -108,7 +105,9 @@ public:
         return (it != vars_.end());
     }
 
-    friend class dataset;
+private:
+    int ncid_;
+    storage_type vars_;
 };
 
 } // namespace ncpp

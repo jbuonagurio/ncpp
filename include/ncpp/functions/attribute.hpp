@@ -16,6 +16,7 @@
 #include <ncpp/config.hpp>
 #include <ncpp/check.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -40,8 +41,9 @@ inline std::optional<int> inq_attid(int ncid, int varid, const std::string& attn
 inline std::string inq_attname(int ncid, int varid, int attnum, std::error_code *ec = nullptr)
 {
     char attname[NC_MAX_NAME + 1];
+    std::fill(std::begin(attname), std::end(attname), '\0');
     check(nc_inq_attname(ncid, varid, attnum, attname), ec);
-    return (ec && ec->value()) ? std::string() : attname;
+    return (ec && ec->value()) ? std::string() : std::string(attname);
 }
 
 // Get the type of an attribute, or NC_NAT if undefined.

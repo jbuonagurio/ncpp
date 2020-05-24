@@ -31,13 +31,14 @@ class variable;
 /// netCDF dimension sequence container.
 class dimensions_type
 {
-private:
+    friend class dataset;
+    friend class variable;
+
+public:
     using storage_type = std::vector<dimension>;
     using value_type = typename storage_type::value_type;
-
-    int ncid_;
-    int varid_;
-    storage_type dims_;
+    using const_iterator = storage_type::const_iterator;
+    using const_reference = storage_type::const_reference;
 
     explicit dimensions_type(int ncid)
         : ncid_(ncid), varid_(NC_GLOBAL)
@@ -45,7 +46,7 @@ private:
         auto dimids = inq_dimids(ncid);
         dims_.reserve(dimids.size());
         for (const auto& dimid : dimids)
-            dims_.emplace_back(dimension(ncid_, dimid));
+            dims_.emplace_back(dimension(ncid, dimid));
     }
 
     dimensions_type(int ncid, int varid)
@@ -54,12 +55,8 @@ private:
         auto dimids = inq_vardimid(ncid, varid);
         dims_.reserve(dimids.size());
         for (const auto& dimid : dimids)
-            dims_.emplace_back(dimension(ncid_, dimid));
+            dims_.emplace_back(dimension(ncid, dimid));
     }
-    
-public:
-    using const_iterator = storage_type::const_iterator;
-    using const_reference = storage_type::const_reference;
     
     const_iterator begin() const noexcept {
         return dims_.begin();
@@ -122,8 +119,10 @@ public:
         return (it != dims_.end());
     }
 
-    friend class dataset;
-    friend class variable;
+private:
+    int ncid_;
+    int varid_;
+    storage_type dims_;
 };
 
 } // namespace ncpp
