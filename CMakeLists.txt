@@ -1,4 +1,4 @@
-# Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+# Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 #
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -21,8 +21,9 @@ set(CMAKE_CXX_STANDARD 17)
 # Options
 option(NCPP_USE_BOOST "Enable Boost support" ON)
 option(NCPP_USE_DATE_H "Enable Date support" ON)
-option(NCPP_BUILD_EXAMPLES "Build examples" ON)
 option(NCPP_BUILD_DOCS "Build documentation" OFF)
+option(NCPP_BUILD_EXAMPLES "Build examples" ON)
+option(NCPP_BUILD_TESTS "Build tests" ON)
 
 # Dependencies
 find_package(netCDF CONFIG REQUIRED)
@@ -31,9 +32,12 @@ message("-- netCDF Version: ${netCDF_VERSION}")
 
 # Target
 set(HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/detail/dispatch.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/detail/functions.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/detail/utilities.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/attribute.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/dataset.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/dimension.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/variable.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/global.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/attribute.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/attributes.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/check.hpp
@@ -43,14 +47,13 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/dimensions.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/error.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/file.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/inquire.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/iterator.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/ncpp.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/selection.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/types.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/variable.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/variables.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/variant.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/version.hpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/variant.hpp)
 
 add_library(ncpp INTERFACE)
 
@@ -84,4 +87,9 @@ endif()
 if(NCPP_BUILD_EXAMPLES)
   add_executable(simple ${CMAKE_CURRENT_SOURCE_DIR}/src/examples/simple.cpp)
   target_link_libraries(simple PRIVATE ncpp)
+endif()
+
+if(NCPP_BUILD_TESTS)
+  add_executable(test ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/test.cpp)
+  target_link_libraries(test PRIVATE ncpp)
 endif()
