@@ -293,37 +293,13 @@ public:
         check(impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), out));
     }
 
-    /// Get numeric values as std::vector.
+    /// Get values as std::vector.
     template <class T, class A = std::allocator<T>>
-    typename std::enable_if_t<std::is_arithmetic_v<T>, std::vector<T, A>>
-    values() const
+    std::vector<T, A> values() const
     {
         return get_vars<std::vector<T, A>>(ncid_, varid_, start_, shape_, stride_);
     }
     
-    /// Get string values as std::vector.
-    template <class T, class A = std::allocator<T>>
-    typename std::enable_if_t<std::is_same_v<T, std::string>, std::vector<T, A>>
-    values() const
-    {
-        return get_vars<std::vector<T, A>>(ncid_, varid_, start_, shape_, stride_);
-    }
-    
-#ifdef NCPP_USE_DATE_H
-
-    /// Get time values as a vector of std::chrono::time_point, typically
-    /// date::sys_days or date::sys_seconds. Assumes Gregorian calendar
-    /// and CF Conventions for time units. Throws attribute_not_found
-    /// error if the calendar or units attribute cannot be parsed.
-    template <class T, class A = std::allocator<T>>
-    typename std::enable_if_t<detail::is_chrono_time_point<T>::value, std::vector<T, A>>
-    values() const
-    {
-        return get_vars<std::vector<T, A>>(ncid_, varid_, start_, shape_, stride_);
-    }
-
-#endif // NCPP_USE_DATE_H
-
 #ifdef NCPP_USE_BOOST
 
     template <class T, std::size_t N, class A = std::allocator<T>>
