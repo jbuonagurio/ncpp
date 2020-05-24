@@ -142,7 +142,7 @@ public:
 
     template <class T>
     std::optional<T> fill_value() const {
-        return api::inq_var_fill(ncid_, varid_);
+        return api::inq_var_fill<T>(ncid_, varid_);
     }
 
     /// Returns the variable storage type.

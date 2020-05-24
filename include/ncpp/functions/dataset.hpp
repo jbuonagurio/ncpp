@@ -38,7 +38,7 @@ inline int inq_format(int ncid, std::error_code *ec = nullptr)
 inline std::size_t inq_type_size(int ncid, int nctype, std::error_code *ec = nullptr)
 {
     std::size_t size = 0;
-    check(nc_inq_type(ncid, nctype, nullptr, &size));
+    check(nc_inq_type(ncid, nctype, nullptr, &size), ec);
     return size;
 }
 
@@ -64,6 +64,7 @@ inline std::vector<int> inq_dimids(int ncid, std::error_code *ec = nullptr)
         check(nc_inq_dimids(ncid, &ndims1, dimids.data(), 0), ec);
     } while (ndims != ndims1);
 
+    dimids.resize(ndims);
     return dimids;
 }
 
@@ -94,6 +95,7 @@ inline std::vector<int> inq_varids(int ncid, std::error_code *ec = nullptr)
         check(nc_inq_varids(ncid, &nvars1, varids.data()), ec);
     } while (nvars != nvars1);
 
+    varids.resize(nvars);
     return varids;
 }
 

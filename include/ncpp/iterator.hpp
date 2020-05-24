@@ -44,12 +44,14 @@ struct block_iterator
         
         // Calculate the number of elements per block using default buffer size.
         // Use buffer size for contiguous variables, otherwise total chunk size.
-        std::size_t elemsize = api::inq_type_size(ncid, api::inq_vartype(ncid, varid));
         std::size_t chunksize = api::inq_var_chunksize(ncid, varid);
-        if (chunksize == 0)
+        if (chunksize == 0) {
+            std::size_t elemsize = api::inq_type_size(ncid, api::inq_vartype(ncid, varid));
             init_blocksize_ = NCPP_DEFAULT_BUFFER_SIZE / elemsize;
-        else
-            init_blocksize_ = chunksize / elemsize;
+        }
+        else {
+            init_blocksize_ = chunksize;
+        }
     }
 
     block_iterator(const block_iterator& rhs) = default;
@@ -89,7 +91,7 @@ struct block_iterator
     }
 
     /// Get the current block size (number of elements).
-    std::size_t blocksize() const {
+    std::size_t block_size() const {
         return blocksize_;
     }
 

@@ -164,21 +164,21 @@ template <class T>
 inline std::optional<T> inq_var_fill(int ncid, int varid, std::error_code *ec = nullptr)
 {
     int vartype = inq_vartype(ncid, varid, ec);
-    if (vartype != type_to_netcdf_type<T>::type.value) {
+    if (ec && ec->value())
+        return {};
+
+    if (vartype != type_to_netcdf_type<T>::type::value) {
         check(NC_EBADTYPE, ec); // Not a valid data type or _FillValue type mismatch
         return {};
     }
 
-    int fill_mode;
-    T fill_value;
-    check(nc_inq_var_fill(ncid, varid, &fill_mode, &fillvalue), ec);
-    if (ec && ec->value())
+    int mode;
+    T value;
+    check(nc_inq_var_fill(ncid, varid, &mode, &value), ec);
+    if ((ec && ec->value()) || mode == NC_NOFILL)
         return {};
     
-    if (fill_mode == NC_NOFILL)
-        return {};
-    
-    return fill_value;
+    return value;
 }
 
 // Get the storage type for a variable, or std::nullopt if undefined.
