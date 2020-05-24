@@ -25,6 +25,7 @@
 #include <vector>
 
 namespace ncpp {
+namespace api {
 namespace impl {
 
 // Get the ID of an attribute, or std::nullopt if undefined.
@@ -239,6 +240,7 @@ Container get_att_array(int ncid, int varid, const std::string& attname)
     { return impl::get_att_array<Container>(ncid, varid, attname); }
 
 
+} // namespace api
 } // namespace ncpp
 
 #endif // NCPP_FUNCTIONS_ATTRIBUTE_HPP

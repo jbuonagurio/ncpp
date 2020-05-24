@@ -36,8 +36,9 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/attribute.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/dataset.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/dimension.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/variable.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/global.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/ndarray.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/functions/variable.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/attribute.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/attributes.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ncpp/check.hpp

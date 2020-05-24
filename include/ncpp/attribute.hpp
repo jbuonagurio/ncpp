@@ -62,44 +62,54 @@ public:
         return attname_;
     }
 
+    /// Get the netCDF ID.
+    int ncid() const {
+        return ncid_;
+    }
+
+    /// Get the associated variable ID, or NC_GLOBAL for global attributes.
+    int varid() const {
+        return varid_;
+    }
+
     /// Get the attribute length.
     std::size_t length() const
     {
-        return inq_attlen(ncid_, varid_, attname_);
+        return api::inq_attlen(ncid_, varid_, attname_);
     }
 
     /// Get the netCDF type ID for the attribute.
     int netcdf_type() const
     {
-        return inq_atttype(ncid_, varid_, attname_);
+        return api::inq_atttype(ncid_, varid_, attname_);
     }
     
     /// Get scalar attribute with arithmetic type.
     template <class T>
     typename std::enable_if<std::is_arithmetic<T>::value, T>::type value() const
     {
-        return get_att<T>(ncid_, varid_, attname_);
+        return api::get_att<T>(ncid_, varid_, attname_);
     }
 
     /// Get scalar attribute with fixed-length string type (`NC_CHAR`).
     template <class T>
     typename std::enable_if<std::is_same<T, std::string>::value, std::string>::type value() const
     {
-        return get_att<T>(ncid_, varid_, attname_);
+        return api::get_att<T>(ncid_, varid_, attname_);
     }
 
     /// Get attribute array with arithmetic type.
     template <class T, class A = std::allocator<T>>
     typename std::enable_if<std::is_arithmetic<T>::value, std::vector<T, A>>::type values() const
     {
-        return get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
+        return api::get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
     }
 
     /// Get attribute array with variable-length string type (`NC_STRING`).
     template <class T, class A = std::allocator<T>>
     typename std::enable_if<std::is_same<T, std::string>::value, std::vector<std::string, A>>::type values() const
     {
-        return get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
+        return api::get_att_array<std::vector<T, A>>(ncid_, varid_, attname_);
     }
 
     /// Get attribute array with variant type.

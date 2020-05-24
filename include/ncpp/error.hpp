@@ -197,26 +197,11 @@ const std::error_category& get_netcdf_category() {
 namespace ncpp {
 namespace detail {
 
-template <typename Exception>
-void throw_exception(const Exception& e);
-
-// Only define the throw_exception function when exceptions are enabled.
-// Otherwise, it is up to the application to provide a definition of this
-// function.
-
-#ifndef NCPP_NO_EXCEPTIONS
-template <typename Exception>
-void throw_exception(const Exception& e)
-{
-    throw e;
-}
-#endif // !NCPP_NO_EXCEPTIONS
-
 inline void throw_error(const std::error_code& err)
 {
     if (err) {
         std::system_error e(err);
-        throw_exception(e);
+        throw e;
     }
 }
 
@@ -224,7 +209,7 @@ inline void throw_error(const std::error_code& err, const char* location)
 {
     if (err) {
         std::system_error e(err, location);
-        throw_exception(e);
+        throw e;
     }
 }
 
@@ -233,7 +218,7 @@ inline void throw_error(const int err)
     if (err) {
         std::error_code ec = error::make_error_code(err);
         std::system_error e(ec);
-        throw_exception(e);
+        throw e;
     }
 }
 
@@ -242,7 +227,7 @@ inline void throw_error(const int err, const char* location)
     if (err) {
         std::error_code ec = error::make_error_code(err);
         std::system_error e(ec, location);
-        throw_exception(e);
+        throw e;
     }
 }
 

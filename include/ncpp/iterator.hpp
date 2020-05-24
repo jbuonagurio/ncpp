@@ -13,14 +13,14 @@
 
 #include <ncpp/config.hpp>
 
-#include <ncpp/detail/utilities.hpp>
 #include <ncpp/functions/dataset.hpp>
 #include <ncpp/functions/variable.hpp>
+#include <ncpp/functions/ndarray.hpp>
+#include <ncpp/error.hpp>
 #include <ncpp/types.hpp>
 
-#include <algorithm>
+#include <cstddef>
 #include <iterator>
-#include <functional>
 #include <vector>
 
 namespace ncpp {
@@ -44,8 +44,8 @@ struct block_iterator
         
         // Calculate the number of elements per block using default buffer size.
         // Use buffer size for contiguous variables, otherwise total chunk size.
-        std::size_t elemsize = inq_type_size(ncid, inq_vartype(ncid, varid));
-        std::size_t chunksize = inq_var_chunksize(ncid, varid);
+        std::size_t elemsize = api::inq_type_size(ncid, api::inq_vartype(ncid, varid));
+        std::size_t chunksize = api::inq_var_chunksize(ncid, varid);
         if (chunksize == 0)
             init_blocksize_ = NCPP_DEFAULT_BUFFER_SIZE / elemsize;
         else
@@ -109,12 +109,12 @@ struct block_iterator
     // Move to the next block. Returns false when past the end.
     bool next()
     {
-        if (offset_ >= ncpp::detail::compute_size(shape_))
+        if (offset_ >= api::compute_size(shape_))
             return false;
         
-        blocksize_ = ncpp::detail::compute_block_size(init_blocksize_, shape_, next_, count_);
+        blocksize_ = api::compute_block_size(init_blocksize_, shape_, next_, count_);
         start_ = next_;
-        next_ = ncpp::detail::unravel_index(blocksize_, start_, shape_);
+        next_ = api::unravel_index(blocksize_, start_, shape_);
         offset_ += blocksize_;
         return true;
     }
@@ -124,7 +124,7 @@ struct block_iterator
     std::vector<T, A> values() const
     {
         const stride_type stride(shape_.size(), 1);
-        return get_vars<std::vector<T, A>>(ncid_, varid_, start_, count_, stride);
+        return api::get_vars<std::vector<T, A>>(ncid_, varid_, start_, count_, stride);
     }
 
 private:

@@ -24,6 +24,7 @@
 #include <vector>
 
 namespace ncpp {
+namespace api {
 namespace impl {
 
 // Get the format flags associated with a dataset or group.
@@ -147,6 +148,8 @@ inline int inq_natts(int ncid, std::error_code& ec) noexcept
 inline int inq_natts(int ncid)
     { return impl::inq_natts(ncid); }
 
+
+} // namespace api
 } // namespace ncpp
 
 #endif // NCPP_FUNCTIONS_DATASET_HPP

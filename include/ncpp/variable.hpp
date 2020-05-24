@@ -23,6 +23,7 @@
 
 #include <ncpp/detail/utilities.hpp>
 #include <ncpp/functions/variable.hpp>
+#include <ncpp/functions/ndarray.hpp>
 #include <ncpp/attributes.hpp>
 #include <ncpp/dimensions.hpp>
 #include <ncpp/selection.hpp>
@@ -101,17 +102,22 @@ public:
 
     /// Get the variable name.
     std::string name() const {
-        return inq_varname(ncid_, varid_);
+        return api::inq_varname(ncid_, varid_);
     }
 
-    // Get the variable ID.
+    /// Get the netCDF ID.
+    int ncid() const {
+        return ncid_;
+    }
+
+    /// Get the variable ID.
     int varid() const {
         return varid_;
     }
 
     /// Get the netCDF data type ID for the variable.
     int netcdf_type() const {
-        return inq_vartype(ncid_, varid_);
+        return api::inq_vartype(ncid_, varid_);
     }
 
     /// Get the start indexes of the data array.
@@ -131,37 +137,22 @@ public:
 
     /// Get the total number of elements in the data array.
     std::size_t size() const {
-        return detail::compute_size(shape_);
-    }
-
-    /// Returns true if the variable is a coordinate variable.
-    bool is_coordinate() const
-    {
-        if (dims.empty())
-            return false;
-        
-        if (dims.front().name() == this->name()) {
-            if (dims.size() == 1)
-                return true;
-            else if (this->netcdf_type() == NC_CHAR && dims.size() == 2)
-                return true;
-        }
-        return false;
+        return api::compute_size(shape_);
     }
 
     template <class T>
     std::optional<T> fill_value() const {
-        return inq_var_fill(ncid_, varid_);
+        return api::inq_var_fill(ncid_, varid_);
     }
 
     /// Returns the variable storage type.
     var_storage_type storage_type() const {
-        return inq_var_storage(ncid_, varid_).value();
+        return api::inq_var_storage(ncid_, varid_).value();
     }
 
     /// Returns the chunk size for each dimension.
     std::vector<std::size_t> chunk_sizes() const {
-        return inq_var_chunksizes(ncid_, varid_);
+        return api::inq_var_chunksizes(ncid_, varid_);
     }
 
 #ifdef NC_HAS_HDF5
@@ -169,13 +160,13 @@ public:
     /// Returns the HDF5 filter ID for the variable.
     /// See also: https://portal.hdfgroup.org/display/support/Filters
     unsigned int filter_type() const {
-        return inq_var_filter_id(ncid_, varid_).value();
+        return api::inq_var_filter_id(ncid_, varid_).value();
     }
 
     /// Returns the HDF5 filter name for the variable.
     /// See also: https://portal.hdfgroup.org/display/support/Filters
     std::string filter_name() const {
-        return inq_var_filter_name(ncid_, varid_);
+        return api::inq_var_filter_name(ncid_, varid_);
     }
 
 #endif // NC_HAS_HDF5
@@ -200,52 +191,103 @@ public:
     template <class T>
     variable select(selection<T>& s) const
     {
-        variable v(*this);
-        
-        // Get the associated dimension and index.
-        const auto it = std::find(dims.begin(), dims.end(), dims[s.dimension_name]);
-        if (it == dims.end())
-            detail::throw_error(error::invalid_dimension);
-        
-        const auto idx = std::distance(dims.begin(), it);
-
-        // Find indexes from dimension coordinates.
-        int cvarid = it->cvarid_;
-        if (cvarid == -1)
-            detail::throw_error(error::variable_not_found);
-        
+        // Read the coordinate variable.
+        std::size_t idx = coordinate_position(s.coordinate);
+        int cvarid = dims.at(idx).cvarid_;
         variable cv(ncid_, cvarid);
         auto coords = cv.values<T>();
         
-        // Handle decreasing coordinates.
+        // Handle decreasing values.
         bool reversed = false;
         if (!std::is_sorted(coords.begin(), coords.end())) {
             std::reverse(coords.begin(), coords.end());
             reversed = true;
         }
         
-        if (s.min_coordinate > s.max_coordinate)
-            std::swap(s.min_coordinate, s.max_coordinate);
+        if (s.min_value > s.max_value)
+            std::swap(s.min_value, s.max_value);
         
         // Set the start and shape indexes.
-        auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_coordinate);
-        auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_coordinate);
+        auto lower = std::lower_bound(coords.begin(), coords.end(), s.min_value);
+        auto upper = std::upper_bound(coords.begin(), coords.end(), s.max_value);
         
+        variable v(*this);
         v.start_.at(idx) = reversed ? static_cast<std::size_t>(std::distance(upper, coords.end()))
                                     : static_cast<std::size_t>(std::distance(coords.begin(), lower));
         
-        v.stride_.at(idx) = s.stride;
         v.shape_.at(idx) = static_cast<std::size_t>(std::distance(lower, upper)) / std::abs(s.stride);
+        v.stride_.at(idx) = s.stride;
         return v;
     }
-    
+
+    /// Returns a vector with one variable for each consecutive equal value
+    /// range in the coordinate variable. Stride will be reset to 1 in the
+    /// coordinate variable dimension.
+    template <class T>
+    std::vector<std::pair<T, variable>> group_by(const std::string& coordvarname)
+    {
+        std::vector<std::pair<T, variable>> result;
+        std::size_t idx = coordinate_position(coordvarname);
+        const auto coords = coordinates<T>(idx);
+
+        // Group all adjacent equal elements.
+        for (auto lower = coords.begin(), end = coords.end(); lower != end; /**/) {
+            auto upper = std::adjacent_find(lower, end, std::not_equal_to<>{});
+            if (upper != end)
+                ++upper;
+
+            variable v(*this);
+            v.start_.at(idx) = static_cast<std::size_t>(std::distance(coords.begin(), lower));
+            v.shape_.at(idx) = static_cast<std::size_t>(std::distance(lower, upper));
+            v.stride_.at(idx) = 1;
+            result.emplace_back(std::make_pair(*lower, v));
+
+            lower = upper;
+        }
+
+        return result;
+    }
+
+    /// Change the coordinate variable for a dimension. The new variable must
+    /// be one-dimensional (two-dimensional for classic strings) and have the
+    /// same dimension. This is also known as an auxiliary coordinate variable
+    /// (CF) or non-dimension coordinate variable (xarray).
+    void set_coordinate(const std::string& dimname, const std::string& coordvarname)
+    {
+        // Get the associated dimension.
+        auto it = std::find(dims.begin(), dims.end(), dims[dimname]);
+        if (it == dims.end())
+            detail::throw_error(error::invalid_dimension);
+
+        dimension& dim = *it;
+
+        int cvarid = api::inq_varid(ncid_, coordvarname).value_or(-1);
+        if (cvarid == -1)
+            detail::throw_error(error::variable_not_found);
+        
+        int cvartype = api::inq_vartype(ncid_, cvarid);
+        auto cvardimids = api::inq_vardimid(ncid_, cvarid);
+
+        // Ensure the variable is one-dimensional; allow two dimensions for classic strings.
+        if ((cvartype != NC_CHAR && cvardimids.size() != 1) ||
+            (cvartype == NC_CHAR && cvardimids.size() > 2))
+            detail::throw_error(error::invalid_dimension_size);
+
+        // Ensure the variable is indexed by this dimension.
+        if (cvardimids.at(0) != dim.dimid())
+            detail::throw_error(error::invalid_dimension);
+        
+        // Update the coordinate variable ID for the dimension.
+        dim.cvarid_ = cvarid;
+    }
+
     /// Get the coordinates for all dimensions as a vector of tuples.
-    template <typename... Ts>
+    template <class... Ts>
     std::vector<std::tuple<Ts...>> coordinates() const
     {
         // Make sure we have the correct number of columns.
         if (sizeof...(Ts) != dims.size())
-            detail::throw_error(error::invalid_coordinates);
+            detail::throw_error(error::invalid_dimension_size);
         
         std::tuple<std::vector<Ts>...> columns;
         
@@ -261,43 +303,58 @@ public:
     
     /// Get the coordinates for one dimension by position as a vector.
     template <class T>
-    std::vector<T> coordinates(std::size_t dimension_pos) const
+    std::vector<T> coordinates(std::size_t pos) const
     {   
+        if (pos >= dims.size())
+            detail::throw_error(error::invalid_dimension);
+        
         // Get the coordinate values.
-        int cvarid = dims.at(dimension_pos).cvarid_;
+        int cvarid = dims.at(pos).cvarid_;
         variable cv(ncid_, cvarid);
-        cv.start_.at(0) = start_.at(dimension_pos);
-        cv.shape_.at(0) = shape_.at(dimension_pos);
-        cv.stride_.at(0) = stride_.at(dimension_pos);
+        cv.start_.at(0) = start_.at(pos);
+        cv.shape_.at(0) = shape_.at(pos);
+        cv.stride_.at(0) = stride_.at(pos);
         auto coords = cv.values<T>();
         return coords;
     }
     
     /// Get the coordinates for one dimension by name as a vector.
     template <class T>
-    std::vector<T> coordinates(const std::string& dimension_name) const
-    {   
-        // Get the associated dimension and index.
-        const auto it = std::find(dims.begin(), dims.end(), dims[dimension_name]);
-        if (it == dims.end())
-            detail::throw_error(error::invalid_dimension);
-        
-        const auto pos = std::distance(dims.begin(), it);
-        return coordinates<T>(pos);
+    std::vector<T> coordinates(const std::string& coordvarname) const
+    {
+        std::size_t idx = coordinate_position(coordvarname);
+        return coordinates<T>(idx);
     }
-    
+
+    // Get the dimension position for a coordinate variable.
+    std::size_t coordinate_position(const std::string& coordvarname) const
+    {
+        int cvarid = api::inq_varid(ncid_, coordvarname).value_or(-1);
+        if (cvarid == -1)
+            detail::throw_error(error::variable_not_found);
+
+        // Find the dimension associated with this coordinate variable.
+        const auto it = std::find_if(dims.begin(), dims.end(), [&](const auto& dim)
+            { return dim.cvarid_ == cvarid; });
+
+        if (it == dims.end())
+            detail::throw_error(error::variable_not_found);
+
+        return static_cast<std::size_t>(std::distance(dims.begin(), it));
+    }
+
     /// Copy values to allocated memory.
     template <class T>
     void read(T *out) const
     {
-        check(impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), out));
+        check(api::impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), out));
     }
 
     /// Get values as std::vector.
     template <class T, class A = std::allocator<T>>
     std::vector<T, A> values() const
     {
-        return get_vars<std::vector<T, A>>(ncid_, varid_, start_, shape_, stride_);
+        return api::get_vars<std::vector<T, A>>(ncid_, varid_, start_, shape_, stride_);
     }
     
 #ifdef NCPP_USE_BOOST
@@ -321,7 +378,7 @@ public:
         std::copy_n(shape_.begin(), N, extents.begin());
         boost::multi_array<T, N, A> result(extents, boost::fortran_storage_order{});
 
-        check(impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data()));
+        check(api::impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data()));
         return result;
     }
 
@@ -334,7 +391,7 @@ public:
             detail::throw_error(error::invalid_coordinates); // NC_EINVALCOORDS
         
         matrix_type<T, A> result(extents[0], extents[1]);
-        check(impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data().begin()));
+        check(api::impl::detail::get_vars(ncid_, varid_, start_.data(), shape_.data(), stride_.data(), result.data().begin()));
         return result;
     }
 

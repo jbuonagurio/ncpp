@@ -37,19 +37,29 @@ class attributes_type
 public:
     using storage_type = std::set<attribute>;
     using value_type = typename storage_type::value_type;
+    using iterator = storage_type::iterator;
     using const_iterator = storage_type::const_iterator;
+    using reference = storage_type::reference;
     using const_reference = storage_type::const_reference;
 
     attributes_type(int ncid, int varid = NC_GLOBAL)
         : ncid_(ncid), varid_(varid)
     {
-        int natts = inq_varnatts(ncid, varid);
+        int natts = api::inq_varnatts(ncid, varid);
         for (int attnum = 0; attnum < natts; ++attnum) {
-            std::string attname = inq_attname(ncid, varid, attnum);
+            std::string attname = api::inq_attname(ncid, varid, attnum);
             atts_.emplace(attribute(ncid, varid, attname));
         }
     }
     
+    iterator begin() noexcept {
+        return atts_.begin();
+    }
+
+    iterator end() noexcept {
+        return atts_.end();
+    }
+
     const_iterator begin() const noexcept {
         return atts_.begin();
     }
@@ -57,12 +67,12 @@ public:
     const_iterator end() const noexcept {
         return atts_.end();
     }
-
-    const_reference front() const noexcept {
+    
+    const_reference front() const {
         return *atts_.cbegin();
     }
 
-    const_reference back() const noexcept {
+    const_reference back() const {
         return *atts_.cend();
     }
 

@@ -19,20 +19,13 @@
 
 namespace ncpp {
 
-struct strided_slice
-{
-    std::vector<std::size_t> start_;
-    std::vector<std::size_t> shape_;
-    std::vector<std::ptrdiff_t> stride_;
-};
-
 /// netCDF coordinate variable selection type.
 template <class T>
 struct selection
 {
-    std::string dimension_name;
-    T min_coordinate;
-    T max_coordinate;
+    std::string coordinate;
+    T min_value;
+    T max_value;
     std::ptrdiff_t stride = 1;
 };
 

@@ -35,17 +35,27 @@ class variables_type
 public:
     using storage_type = std::set<variable>;
     using value_type = typename storage_type::value_type;
+    using iterator = storage_type::iterator;
     using const_iterator = storage_type::const_iterator;
+    using reference = storage_type::reference;
     using const_reference = storage_type::const_reference;
 
     explicit variables_type(int ncid)
         : ncid_(ncid)
     {
-        auto varids = inq_varids(ncid);
+        auto varids = api::inq_varids(ncid);
         for (const auto& varid : varids)
             vars_.emplace(variable(ncid, varid));
     }
+    
+    iterator begin() noexcept {
+        return vars_.begin();
+    }
 
+    iterator end() noexcept {
+        return vars_.end();
+    }
+    
     const_iterator begin() const noexcept {
         return vars_.begin();
     }
@@ -54,11 +64,11 @@ public:
         return vars_.end();
     }
 
-    const_reference front() const noexcept {
+    const_reference front() const {
         return *vars_.cbegin();
     }
 
-    const_reference back() const noexcept {
+    const_reference back() const {
         return *vars_.cend();
     }
 
@@ -73,7 +83,7 @@ public:
     /// Get a variable by name.
     const_reference operator[](const std::string& name) const
     {
-        auto varid = inq_varid(ncid_, name);
+        auto varid = api::inq_varid(ncid_, name);
         if (!varid.has_value())
             detail::throw_error(error::variable_not_found);
         
@@ -97,7 +107,7 @@ public:
     bool contains(const std::string& name) const noexcept
     {
         std::error_code ec;
-        auto varid = inq_varid(ncid_, name, ec);
+        auto varid = api::inq_varid(ncid_, name, ec);
         if (ec.value() || !varid.has_value())
             return false;
         

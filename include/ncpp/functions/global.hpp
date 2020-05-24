@@ -22,6 +22,7 @@
 #include <system_error>
 
 namespace ncpp {
+namespace api {
 namespace impl {
 
 inline chunk_cache get_chunk_cache(std::error_code *ec = nullptr)
@@ -47,6 +48,7 @@ inline chunk_cache get_chunk_cache()
     { return impl::get_chunk_cache(); }
 
 
+} // namespace api
 } // namespace ncpp
 
 #endif // NCPP_FUNCTIONS_GLOBAL_HPP

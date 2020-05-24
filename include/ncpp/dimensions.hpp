@@ -37,13 +37,15 @@ class dimensions_type
 public:
     using storage_type = std::vector<dimension>;
     using value_type = typename storage_type::value_type;
+    using iterator = storage_type::iterator;
     using const_iterator = storage_type::const_iterator;
+    using reference = storage_type::reference;
     using const_reference = storage_type::const_reference;
-
+    
     explicit dimensions_type(int ncid)
         : ncid_(ncid), varid_(NC_GLOBAL)
     {
-        auto dimids = inq_dimids(ncid);
+        auto dimids = api::inq_dimids(ncid);
         dims_.reserve(dimids.size());
         for (const auto& dimid : dimids)
             dims_.emplace_back(dimension(ncid, dimid));
@@ -52,10 +54,18 @@ public:
     dimensions_type(int ncid, int varid)
         : ncid_(ncid), varid_(varid)
     {
-        auto dimids = inq_vardimid(ncid, varid);
+        auto dimids = api::inq_vardimid(ncid, varid);
         dims_.reserve(dimids.size());
         for (const auto& dimid : dimids)
             dims_.emplace_back(dimension(ncid, dimid));
+    }
+
+    iterator begin() noexcept {
+        return dims_.begin();
+    }
+
+    iterator end() noexcept {
+        return dims_.end();
     }
     
     const_iterator begin() const noexcept {
@@ -66,11 +76,11 @@ public:
         return dims_.end();
     }
 
-    const_reference front() const noexcept {
+    const_reference front() const {
         return *dims_.cbegin();
     }
 
-    const_reference back() const noexcept {
+    const_reference back() const {
         return *dims_.cend();
     }
 
@@ -85,7 +95,7 @@ public:
     /// Get a dimension from its name.
     const_reference operator[](const std::string& name) const
     {
-        auto dimid = inq_dimid(ncid_, name);
+        auto dimid = api::inq_dimid(ncid_, name);
         if (!dimid.has_value())
             detail::throw_error(error::invalid_dimension);
         
@@ -111,7 +121,7 @@ public:
     bool contains(const std::string& name) const noexcept
     {
         std::error_code ec;
-        auto dimid = inq_dimid(ncid_, name, ec);
+        auto dimid = api::inq_dimid(ncid_, name, ec);
         if (ec.value() || !dimid.has_value())
             return false;
         

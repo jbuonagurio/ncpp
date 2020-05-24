@@ -1,4 +1,4 @@
-// Copyright (c) 2018 John Buonagurio (jbuonagurio at exponent dot com)
+// Copyright (c) 2020 John Buonagurio (jbuonagurio at exponent dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
         filename = "./data/ECMWF_ERA-40_subset.nc";
     
     // Print netCDF library version
-    std::cout << ncpp::inq_libvers() << "\n\n";
+    std::cout << ncpp::api::inq_libvers() << "\n\n";
     
     try {
         ncpp::file f(filename, ncpp::file::read);
@@ -54,15 +54,21 @@ int main(int argc, char *argv[])
             ncpp::selection<double>{"latitude", 77.5, 80},
             ncpp::selection<double>{"longitude", 7.5, 10}
         );
-        
+
         // Selection shape
-        std::cout << "\tshape: (";
+        std::cout << "shape: (";
         std::string separator;
         for (const auto& i : slice.shape()) {
             std::cout << separator << i;
             separator = ",";
         }
         std::cout << ")\n";
+
+        // Grouping
+        auto groups = slice.group_by<double>("latitude");
+        for (const auto& g : groups) {
+            std::cout << "group: " << g.first << "\tsize: " << g.second.size() << "\n";
+        }
 
         // Print coordinates and values
         auto coordinates = slice.coordinates<date::sys_seconds, double, double>();
@@ -71,26 +77,14 @@ int main(int argc, char *argv[])
         for (int i = 0; i < coordinates.size(); ++i) {
             auto c = coordinates.at(i);
             auto v = values.at(i);
-            std::cout << "\ttcw(" << date::format("%F %R",std::get<0>(c))
+            std::cout << "tcw(" << date::format("%F %R",std::get<0>(c))
                       << "," << std::get<1>(c)
                       << "," << std::get<2>(c)
                       << ")\t= " << v << "\n";
         }
-        
-        // Iterator support
-        auto it = slice.begin<double>();
-        while (it != slice.end<double>()) {
-            std::cout << "\t";
-            for (const auto& idx : it.index()) {
-                std::cout << idx << ", ";
-            }
-            std::cout << "\t" << *it << "\n";
-            std::advance(it, 1);
-        }
     }
     catch (std::system_error& e) {
-        std::cerr << e.code() << "\n";
-        std::cerr << e.what() << "\n";
+        std::cerr << e.code() << ": " << e.what() << "\n";
         return 1;
     }
     catch (std::exception& e) {

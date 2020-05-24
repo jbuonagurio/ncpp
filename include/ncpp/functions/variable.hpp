@@ -40,15 +40,21 @@
 #endif
 
 namespace ncpp {
+namespace api {
 namespace impl {
 
 // Get the ID of a variable, or std::nullopt if undefined.
 inline std::optional<int> inq_varid(int ncid, const std::string& varname, std::error_code *ec = nullptr)
 {
     int varid;
-    check(nc_inq_varid(ncid, varname.c_str(), &varid), ec);
-    if (ec && ec->value())
+    int rc = nc_inq_varid(ncid, varname.c_str(), &varid);
+    if (rc == NC_ENOTVAR) {
         return {};
+    }
+    else if (rc != NC_NOERR) {
+        check(rc, ec);
+        return {};
+    }
     return varid;
 }
 
@@ -789,11 +795,21 @@ cf_time<C, D> parse_cf_time(int ncid, int varid, std::error_code *ec = nullptr)
     return cft;
 }
 
+namespace detail {
+
+    template <class T>
+    struct is_chrono_time_point : std::false_type {};
+
+    template <class C, class D>
+    struct is_chrono_time_point<std::chrono::time_point<C, D>> : std::true_type {};
+
+} // namespace detail
+
 // Get a variable with time values as an array of std::chrono::time_point,
 // typically date::sys_days or date::sys_seconds. Assumes Gregorian calendar
 // and CF Conventions for time units.
 template <class Container>
-typename std::enable_if_t<ncpp::detail::is_chrono_time_point<typename Container::value_type>::value, Container>
+typename std::enable_if_t<detail::is_chrono_time_point<typename Container::value_type>::value, Container>
 get_vars(int ncid, int varid,
          const index_type& start,
          const index_type& count,
@@ -822,7 +838,7 @@ get_vars(int ncid, int varid,
 
 // Read a single datum from a variable with time values as a std::chrono::time_point.
 template <class T>
-typename std::enable_if_t<ncpp::detail::is_chrono_time_point<T>::value, T>
+typename std::enable_if_t<detail::is_chrono_time_point<T>::value, T>
 get_var1(int ncid, int varid, const index_type& start, std::error_code *ec = nullptr)
 {
     T result;
@@ -977,7 +993,7 @@ template <class Container>
 Container get_var(int ncid, int varid)
     { return impl::get_var<Container>(ncid, varid); }
 
-
+} // namespace api
 } // namespace ncpp
 
 #endif // NCPP_FUNCTIONS_VARIABLE_HPP

@@ -24,6 +24,7 @@
 #include <vector>
 
 namespace ncpp {
+namespace api {
 namespace impl {
 
 // Get the ID of a dimension.
@@ -76,6 +77,7 @@ inline std::size_t inq_dimlen(int ncid, int dimid)
     { return impl::inq_dimlen(ncid, dimid); }
 
 
+} // namespace api
 } // namespace ncpp
 
 #endif // NCPP_FUNCTIONS_DIMENSION_HPP

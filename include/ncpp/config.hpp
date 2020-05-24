@@ -17,7 +17,6 @@
 #define NCPP_DEFAULT_BUFFER_SIZE 5000000
 #endif
 
-//#define NCPP_NO_EXCEPTIONS
 //#define NCPP_USE_BOOST
 //#define NCPP_USE_DATE_H
 
